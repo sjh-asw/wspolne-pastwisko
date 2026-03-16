@@ -63,23 +63,52 @@ function showConnectionWarning(show) {
 
 socket.on('connect', () => {
   showConnectionWarning(false);
-  // Re-join room on reconnect
+
+  // Determine reconnect credentials: either from in-memory state or localStorage (page refresh)
+  let reconnectCode = null;
+  let reconnectName = null;
+
   if (joined && myName) {
-    const code = document.getElementById('room-code-input').value.trim().toUpperCase();
-    socket.emit('room:join', { code, name: myName }, (res) => {
-      // After successful rejoin, retry pending submission if server hasn't recorded it yet
+    reconnectCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+    reconnectName = myName;
+  } else {
+    // Page refresh recovery: check localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem('pastwisko_session'));
+      if (saved && saved.code && saved.name) {
+        reconnectCode = saved.code;
+        reconnectName = saved.name;
+      }
+    } catch(e) {}
+  }
+
+  if (reconnectCode && reconnectName) {
+    socket.emit('room:join', { code: reconnectCode, name: reconnectName }, (res) => {
+      if (res && res.error) {
+        // Room no longer exists or name conflict — clear saved session
+        try { localStorage.removeItem('pastwisko_session'); } catch(e) {}
+        return;
+      }
+      if (res && (res.success || res.reconnected)) {
+        // Recover in-memory state
+        myName = reconnectName;
+        joined = true;
+        document.getElementById('room-code-input').value = reconnectCode;
+        document.getElementById('join-form').classList.add('hidden');
+        document.getElementById('waiting-area').classList.remove('hidden');
+      }
+      // Retry pending submission if server hasn't recorded it yet
       if (pendingSubmit && state.hasSubmitted) {
-        const phase = pendingSubmit.event.split(':')[0]; // 'phaseA', 'phaseC', 'phaseD'
+        const phase = pendingSubmit.event.split(':')[0];
         if (state.hasSubmitted[phase]) {
-          // Server already has our submission (auto-submitted on disconnect)
           pendingSubmit = null;
           return;
         }
       }
       if (pendingSubmit) {
         const { event, data } = pendingSubmit;
-        socket.emit(event, data, (res) => {
-          if (res && res.ok) {
+        socket.emit(event, data, (ackRes) => {
+          if (ackRes && ackRes.ok) {
             pendingSubmit = null;
             showConnectionWarning(false);
           }
@@ -124,6 +153,8 @@ document.getElementById('join-btn').addEventListener('click', () => {
     }
     myName = name;
     joined = true;
+    // Save for page refresh recovery
+    try { localStorage.setItem('pastwisko_session', JSON.stringify({ code, name })); } catch(e) {}
     document.getElementById('join-form').classList.add('hidden');
     document.getElementById('waiting-area').classList.remove('hidden');
   });
@@ -633,6 +664,8 @@ socket.on('game:over', (data) => {
     document.getElementById('gameover-waiting-game2').classList.remove('hidden');
   } else {
     document.getElementById('gameover-waiting-game2').classList.add('hidden');
+    // Final game over — clear session
+    try { localStorage.removeItem('pastwisko_session'); } catch(e) {}
   }
 });
 
@@ -653,6 +686,7 @@ socket.on('game:resumed', () => {
 });
 
 socket.on('kicked', () => {
+  try { localStorage.removeItem('pastwisko_session'); } catch(e) {}
   alert('Zostałeś usunięty z gry.');
   window.location.href = '/';
 });
