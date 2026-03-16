@@ -469,9 +469,8 @@ function resolvePhaseA(room) {
     pool: { ...room.pool }
   });
 
-  // Wait for instructor to advance to Phase B
-  room.pendingNext = () => startPhaseB(room);
-  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'phaseB' });
+  // Phase B (famine check) is automatic — no instructor click needed
+  startPhaseB(room);
 }
 
 function startPhaseB(room) {
@@ -805,9 +804,8 @@ function resolvePhaseD(room) {
   };
   room.history.push(roundData);
 
-  // Wait for instructor to show round results
-  room.pendingNext = () => showRoundResults(room);
-  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'roundResults' });
+  // Show round results automatically
+  showRoundResults(room);
 }
 
 function showRoundResults(room) {
