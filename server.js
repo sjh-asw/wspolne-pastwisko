@@ -1024,14 +1024,28 @@ io.on('connection', (socket) => {
     startRound(room);
   });
 
+  // Helper: send submission count + pending player names to dashboard
+  function broadcastSubmissionStatus(room, phase, submissions) {
+    const count = Object.keys(submissions).length;
+    const total = getPlayerCount(room);
+    const pending = [];
+    for (const [sid, p] of Object.entries(room.players)) {
+      if (!p.isSpectator && !submissions[sid]) {
+        pending.push(p.name);
+      }
+    }
+    broadcastDashboard(room, 'submission:count', { phase, count, total, pending });
+    broadcastToRoom(room, 'submission:count', { phase, count, total });
+  }
+
   // Phase A submission
-  socket.on('phaseA:submit', (data) => {
-    if (!currentRoom) return;
+  socket.on('phaseA:submit', (data, callback) => {
+    if (!currentRoom) { if (callback) callback({ error: true }); return; }
     const room = currentRoom;
     const player = room.players[socket.id];
-    if (!player || player.isSpectator || player.eliminated) return;
-    if (room.phase !== 'phaseA') return;
-    if (room.phaseASubmissions[socket.id]) return; // already submitted
+    if (!player || player.isSpectator || player.eliminated) { if (callback) callback({ error: true }); return; }
+    if (room.phase !== 'phaseA') { if (callback) callback({ error: true }); return; }
+    if (room.phaseASubmissions[socket.id]) { if (callback) callback({ ok: true, alreadySubmitted: true }); return; }
 
     // Validate acquisition
     const maxAcq = Math.max(2, herdValue(player.herd));
@@ -1048,54 +1062,50 @@ io.on('connection', (socket) => {
     }
 
     room.phaseASubmissions[socket.id] = validated;
+    if (callback) callback({ ok: true });
 
-    // Notify dashboard of submission count
-    const count = Object.keys(room.phaseASubmissions).length;
-    const total = getPlayerCount(room);
-    broadcastDashboard(room, 'submission:count', { phase: 'phaseA', count, total });
-    broadcastToRoom(room, 'submission:count', { phase: 'phaseA', count, total });
+    broadcastSubmissionStatus(room, 'phaseA', room.phaseASubmissions);
 
-    // Check if all submitted
-    if (count >= total) {
+    if (Object.keys(room.phaseASubmissions).length >= getPlayerCount(room)) {
       resolvePhaseA(room);
     }
   });
 
   // Phase C submission
-  socket.on('phaseC:submit', ({ type }) => {
-    if (!currentRoom) return;
+  socket.on('phaseC:submit', ({ type }, callback) => {
+    if (!currentRoom) { if (callback) callback({ error: true }); return; }
     const room = currentRoom;
     const player = room.players[socket.id];
-    if (!player || player.isSpectator || player.eliminated) return;
-    if (room.phase !== 'phaseC') return;
-    if (room.phaseCSubmissions[socket.id]) return;
+    if (!player || player.isSpectator || player.eliminated) { if (callback) callback({ error: true }); return; }
+    if (room.phase !== 'phaseC') { if (callback) callback({ error: true }); return; }
+    if (room.phaseCSubmissions[socket.id]) { if (callback) callback({ ok: true, alreadySubmitted: true }); return; }
 
     if (herdCount(player.herd) <= 1) {
       room.phaseCSubmissions[socket.id] = { type: null, exempt: true };
     } else if (type && ANIMAL_TYPES.includes(type) && player.herd[type] > 0) {
       room.phaseCSubmissions[socket.id] = { type };
     } else {
-      return; // invalid
+      if (callback) callback({ error: true });
+      return;
     }
 
-    const count = Object.keys(room.phaseCSubmissions).length;
-    const total = getPlayerCount(room);
-    broadcastDashboard(room, 'submission:count', { phase: 'phaseC', count, total });
-    broadcastToRoom(room, 'submission:count', { phase: 'phaseC', count, total });
+    if (callback) callback({ ok: true });
 
-    if (count >= total) {
+    broadcastSubmissionStatus(room, 'phaseC', room.phaseCSubmissions);
+
+    if (Object.keys(room.phaseCSubmissions).length >= getPlayerCount(room)) {
       resolvePhaseC(room);
     }
   });
 
   // Phase D submission
-  socket.on('phaseD:submit', ({ target }) => {
-    if (!currentRoom) return;
+  socket.on('phaseD:submit', ({ target }, callback) => {
+    if (!currentRoom) { if (callback) callback({ error: true }); return; }
     const room = currentRoom;
     const player = room.players[socket.id];
-    if (!player || player.isSpectator || player.eliminated) return;
-    if (room.phase !== 'phaseD') return;
-    if (room.phaseDSubmissions[socket.id]) return;
+    if (!player || player.isSpectator || player.eliminated) { if (callback) callback({ error: true }); return; }
+    if (room.phase !== 'phaseD') { if (callback) callback({ error: true }); return; }
+    if (room.phaseDSubmissions[socket.id]) { if (callback) callback({ ok: true, alreadySubmitted: true }); return; }
 
     if (herdCount(player.herd) <= 1) {
       room.phaseDSubmissions[socket.id] = { target: null, cannotPunish: true };
@@ -1103,12 +1113,11 @@ io.on('connection', (socket) => {
       room.phaseDSubmissions[socket.id] = { target: target || null };
     }
 
-    const count = Object.keys(room.phaseDSubmissions).length;
-    const total = getPlayerCount(room);
-    broadcastDashboard(room, 'submission:count', { phase: 'phaseD', count, total });
-    broadcastToRoom(room, 'submission:count', { phase: 'phaseD', count, total });
+    if (callback) callback({ ok: true });
 
-    if (count >= total) {
+    broadcastSubmissionStatus(room, 'phaseD', room.phaseDSubmissions);
+
+    if (Object.keys(room.phaseDSubmissions).length >= getPlayerCount(room)) {
       resolvePhaseD(room);
     }
   });

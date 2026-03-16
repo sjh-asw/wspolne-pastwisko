@@ -1,5 +1,5 @@
 /* ─── Student Game View ────────────────────────────────────────────────── */
-const socket = io();
+const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 20 });
 
 const ANIMALS = {
   rabbit: { name: 'Królik', emoji: '🐇', value: 1 },
@@ -16,6 +16,63 @@ let selectedTribute = null;
 let selectedPunishTarget = null;
 let phaseASelections = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
 let timerInterval = null;
+let pendingSubmit = null; // { event, data } — retry on reconnect
+
+// ─── Reliable Submit ──────────────────────────────────────────────────────
+function reliableEmit(event, data, onSuccess) {
+  pendingSubmit = { event, data };
+  socket.emit(event, data, (res) => {
+    if (res && res.ok) {
+      pendingSubmit = null;
+      if (onSuccess) onSuccess(res);
+    } else if (res && res.error) {
+      // Server rejected — show error briefly, allow retry
+      pendingSubmit = null;
+    }
+    // If no callback received (timeout), pendingSubmit stays for reconnect retry
+  });
+  // If no ack in 5s, show a warning
+  setTimeout(() => {
+    if (pendingSubmit && pendingSubmit.event === event) {
+      showConnectionWarning(true);
+    }
+  }, 5000);
+}
+
+function showConnectionWarning(show) {
+  let el = document.getElementById('connection-warning');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'connection-warning';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:var(--red);color:#fff;text-align:center;padding:0.5rem;font-size:0.9rem;z-index:200;';
+    el.textContent = 'Problem z połączeniem — próbuję ponownie...';
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'block' : 'none';
+}
+
+socket.on('connect', () => {
+  showConnectionWarning(false);
+  // Re-join room on reconnect
+  if (joined && myName) {
+    const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+    socket.emit('room:join', { code, name: myName }, () => {});
+  }
+  // Retry pending submission
+  if (pendingSubmit) {
+    const { event, data } = pendingSubmit;
+    socket.emit(event, data, (res) => {
+      if (res && res.ok) {
+        pendingSubmit = null;
+        showConnectionWarning(false);
+      }
+    });
+  }
+});
+
+socket.on('disconnect', () => {
+  showConnectionWarning(true);
+});
 
 // ─── DOM Elements ─────────────────────────────────────────────────────────
 const screens = document.querySelectorAll('.screen');
@@ -218,9 +275,11 @@ function updateAcquireTotal(maxAcq) {
 }
 
 document.getElementById('phaseA-confirm').addEventListener('click', () => {
-  socket.emit('phaseA:submit', phaseASelections);
-  document.getElementById('phaseA-form').classList.add('hidden');
-  document.getElementById('phaseA-submitted').classList.remove('hidden');
+  document.getElementById('phaseA-confirm').disabled = true;
+  reliableEmit('phaseA:submit', phaseASelections, () => {
+    document.getElementById('phaseA-form').classList.add('hidden');
+    document.getElementById('phaseA-submitted').classList.remove('hidden');
+  });
 });
 
 // ─── Phase C: Tribute ─────────────────────────────────────────────────────
@@ -235,8 +294,8 @@ function showPhaseC() {
   if (count <= 1) {
     document.getElementById('phaseC-form').classList.add('hidden');
     document.getElementById('phaseC-exempt').classList.remove('hidden');
-    // Auto-submit
-    socket.emit('phaseC:submit', { type: null });
+    // Auto-submit (exempt)
+    reliableEmit('phaseC:submit', { type: null });
     return;
   }
 
@@ -272,9 +331,11 @@ function showPhaseC() {
 
 document.getElementById('phaseC-confirm').addEventListener('click', () => {
   if (!selectedTribute) return;
-  socket.emit('phaseC:submit', { type: selectedTribute });
-  document.getElementById('phaseC-form').classList.add('hidden');
-  document.getElementById('phaseC-submitted').classList.remove('hidden');
+  document.getElementById('phaseC-confirm').disabled = true;
+  reliableEmit('phaseC:submit', { type: selectedTribute }, () => {
+    document.getElementById('phaseC-form').classList.add('hidden');
+    document.getElementById('phaseC-submitted').classList.remove('hidden');
+  });
 });
 
 // ─── Phase D: Punishment ──────────────────────────────────────────────────
@@ -289,7 +350,7 @@ function showPhaseD() {
   if (count <= 1) {
     document.getElementById('phaseD-form').classList.add('hidden');
     document.getElementById('phaseD-exempt').classList.remove('hidden');
-    socket.emit('phaseD:submit', { target: null });
+    reliableEmit('phaseD:submit', { target: null });
     return;
   }
 
@@ -325,15 +386,21 @@ function showPhaseD() {
 }
 
 document.getElementById('punish-btn').addEventListener('click', () => {
-  socket.emit('phaseD:submit', { target: selectedPunishTarget });
-  document.getElementById('phaseD-form').classList.add('hidden');
-  document.getElementById('phaseD-submitted').classList.remove('hidden');
+  document.getElementById('punish-btn').disabled = true;
+  document.getElementById('no-punish-btn').disabled = true;
+  reliableEmit('phaseD:submit', { target: selectedPunishTarget }, () => {
+    document.getElementById('phaseD-form').classList.add('hidden');
+    document.getElementById('phaseD-submitted').classList.remove('hidden');
+  });
 });
 
 document.getElementById('no-punish-btn').addEventListener('click', () => {
-  socket.emit('phaseD:submit', { target: null });
-  document.getElementById('phaseD-form').classList.add('hidden');
-  document.getElementById('phaseD-submitted').classList.remove('hidden');
+  document.getElementById('punish-btn').disabled = true;
+  document.getElementById('no-punish-btn').disabled = true;
+  reliableEmit('phaseD:submit', { target: null }, () => {
+    document.getElementById('phaseD-form').classList.add('hidden');
+    document.getElementById('phaseD-submitted').classList.remove('hidden');
+  });
 });
 
 // ─── Socket Events ────────────────────────────────────────────────────────

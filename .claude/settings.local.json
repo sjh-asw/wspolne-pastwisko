@@ -11,7 +11,9 @@
       "Bash(git remote:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(brew install:*)"
+      "Bash(brew install:*)",
+      "Bash(npm list:*)",
+      "Bash(node generate-docx.js)"
     ]
   }
 }

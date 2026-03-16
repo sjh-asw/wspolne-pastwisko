@@ -10,5 +10,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.4"
+  },
+  "devDependencies": {
+    "docx": "^9.6.1"
   }
 }

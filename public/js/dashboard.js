@@ -211,6 +211,7 @@ function updatePhaseStatus() {
     el.innerHTML = `
       <h3>Faza A: Dobranie zwierząt</h3>
       <div class="submission-counter">Decyzje: ${count}/${total} ✓</div>
+      <div id="pending-players" style="display:none;font-size:0.85rem;color:var(--orange);margin-top:0.3rem;"></div>
       <div class="phase-detail" id="phaseA-detail"></div>
     `;
   } else if (state.phase === 'phaseC') {
@@ -218,6 +219,7 @@ function updatePhaseStatus() {
     el.innerHTML = `
       <h3>Faza C: Danina</h3>
       <div class="submission-counter">Daniny: ${count}/${total} ✓</div>
+      <div id="pending-players" style="display:none;font-size:0.85rem;color:var(--orange);margin-top:0.3rem;"></div>
       <div class="phase-detail" id="phaseC-detail"></div>
     `;
   } else if (state.phase === 'phaseD') {
@@ -225,6 +227,7 @@ function updatePhaseStatus() {
     el.innerHTML = `
       <h3>Faza D: Porachunki</h3>
       <div class="submission-counter">Porachunki: ${count}/${total} ✓</div>
+      <div id="pending-players" style="display:none;font-size:0.85rem;color:var(--orange);margin-top:0.3rem;"></div>
       <div class="phase-detail" id="phaseD-detail"></div>
     `;
   } else if (state.phase === 'phaseB') {
@@ -237,12 +240,23 @@ function updatePhaseStatus() {
 }
 
 // ─── Submission counts ────────────────────────────────────────────────────
-socket.on('submission:count', ({ phase, count, total }) => {
+socket.on('submission:count', ({ phase, count, total, pending }) => {
   if (state.submissionCounts) state.submissionCounts[phase] = count;
   const counterEl = document.querySelector('.submission-counter');
   if (counterEl) {
     const labels = { phaseA: 'Decyzje', phaseC: 'Daniny', phaseD: 'Porachunki' };
     counterEl.textContent = `${labels[phase] || ''}: ${count}/${total} ✓`;
+  }
+  // Show pending player names on dashboard
+  if (pending && pending.length > 0) {
+    const pendingEl = document.getElementById('pending-players');
+    if (pendingEl) {
+      pendingEl.textContent = `Czekamy na: ${pending.join(', ')}`;
+      pendingEl.style.display = 'block';
+    }
+  } else {
+    const pendingEl = document.getElementById('pending-players');
+    if (pendingEl) pendingEl.style.display = 'none';
   }
 });
 
