@@ -754,16 +754,17 @@ function resolvePhaseD(room) {
 
       // Record results
       if (!punishmentResults[punisherSid]) {
-        punishmentResults[punisherSid] = { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [] };
+        punishmentResults[punisherSid] = { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [], punisherNames: [] };
       }
       punishmentResults[punisherSid].punished = target.name;
       punishmentResults[punisherSid].lost = punisherLost;
 
       if (!punishmentResults[targetSid]) {
-        punishmentResults[targetSid] = { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [] };
+        punishmentResults[targetSid] = { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [], punisherNames: [] };
       }
       punishmentResults[targetSid].wasTarget = true;
       punishmentResults[targetSid].punishedBy++;
+      punishmentResults[targetSid].punisherNames.push(punisher.name);
       if (targetLost) punishmentResults[targetSid].lostFromPunishment.push(targetLost);
 
       // Check elimination
@@ -779,7 +780,7 @@ function resolvePhaseD(room) {
   // Send individual results
   for (const [sid, p] of Object.entries(room.players)) {
     if (p.isSpectator) continue;
-    const result = punishmentResults[sid] || { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [] };
+    const result = punishmentResults[sid] || { punished: null, lost: null, wasTarget: false, punishedBy: 0, lostFromPunishment: [], punisherNames: [] };
     io.to(sid).emit('phaseD:result', {
       ...result,
       herd: { ...p.herd },

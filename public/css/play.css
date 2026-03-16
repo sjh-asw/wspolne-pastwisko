@@ -406,9 +406,24 @@ body {
   background: var(--bg-card);
   border-radius: 12px;
   padding: 1rem;
-  margin: 1rem 0;
+  margin: 0.8rem 0;
   text-align: center;
 }
 .punishment-result.was-punished {
   border: 1px solid rgba(244,67,54,0.3);
+  background: rgba(244,67,54,0.08);
+}
+.punishment-result.safe {
+  border: 1px solid rgba(76,175,80,0.3);
+  background: rgba(76,175,80,0.08);
+}
+.punishment-result.gave-punishment {
+  border: 1px solid rgba(255,152,0,0.3);
+  background: rgba(255,152,0,0.08);
+}
+.punisher-names {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--red);
+  margin: 0.3rem 0;
 }

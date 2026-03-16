@@ -559,24 +559,24 @@ socket.on('phaseD:result', (data) => {
 
   let html = '';
   if (data.wasTarget && data.punishedBy > 0) {
+    const names = (data.punisherNames || []).join(', ');
     html += `<div class="punishment-result was-punished">
-      <p>Ukarało cię <strong>${data.punishedBy}</strong> ${data.punishedBy === 1 ? 'gracz' : 'graczy'}.</p>
-      <p>Straciłeś: ${data.lostFromPunishment.map(t => ANIMALS[t].emoji).join(' ')}</p>
+      <p>⚡ Ukarał${data.punishedBy === 1 ? '' : 'o'} cię <strong>${data.punishedBy}</strong> ${data.punishedBy === 1 ? 'gracz' : 'graczy'}:</p>
+      <p class="punisher-names">${names}</p>
+      <p>Straciłeś: ${data.lostFromPunishment.map(t => ANIMALS[t].emoji + ' ' + ANIMALS[t].name).join(', ')}</p>
     </div>`;
   } else {
-    html += `<div class="punishment-result"><p>Nikt cię nie ukarał.</p></div>`;
+    html += `<div class="punishment-result safe"><p>✅ Nikt cię nie ukarał.</p></div>`;
   }
 
   if (data.punished) {
-    html += `<div class="punishment-result">
-      <p>Ukarałeś: <strong>${data.punished}</strong></p>
-      ${data.lost ? `<p>Koszt kary: ${ANIMALS[data.lost].emoji}</p>` : ''}
+    html += `<div class="punishment-result gave-punishment">
+      <p>🔨 Ukarałeś: <strong>${data.punished}</strong></p>
+      ${data.lost ? `<p>Koszt kary: ${ANIMALS[data.lost].emoji} ${ANIMALS[data.lost].name}</p>` : ''}
     </div>`;
+  } else {
+    html += `<div class="punishment-result"><p>Nikogo nie ukarałeś.</p></div>`;
   }
-
-  html += `<div style="margin-top:1rem;">`;
-  renderHerdInline(data.herd, 'phaseD-result-herd');
-  html += `</div>`;
 
   document.getElementById('phaseD-result-content').innerHTML = html;
   renderHerd(data.herd, 'phaseD-result-herd');
