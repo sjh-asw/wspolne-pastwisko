@@ -315,13 +315,13 @@ function showPhaseD() {
       item.classList.add('selected');
       selectedPunishTarget = p.id;
       document.getElementById('punish-btn').disabled = false;
-      document.getElementById('punish-btn').textContent = `Karuję: ${p.name}`;
+      document.getElementById('punish-btn').textContent = `Karzę: ${p.name}`;
     });
     list.appendChild(item);
   }
 
   document.getElementById('punish-btn').disabled = true;
-  document.getElementById('punish-btn').textContent = 'Karuję: ...';
+  document.getElementById('punish-btn').textContent = 'Karzę: ...';
 }
 
 document.getElementById('punish-btn').addEventListener('click', () => {
