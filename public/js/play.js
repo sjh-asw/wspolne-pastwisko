@@ -345,7 +345,8 @@ function showPhaseD() {
   showScreen('phaseD-screen');
   selectedPunishTarget = null;
   document.getElementById('phaseD-submitted').classList.add('hidden');
-  document.getElementById('phaseD-confirm').disabled = false;
+  document.getElementById('punish-btn').disabled = true;
+  document.getElementById('no-punish-btn').disabled = false;
 
   const herd = state.herd;
   const count = calcHerdCount(herd);
