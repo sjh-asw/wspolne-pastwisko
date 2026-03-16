@@ -19,6 +19,7 @@ body {
   gap: 0.3rem;
 }
 .top-bar .round-info { font-weight: 700; color: var(--green); }
+.top-bar .phase-info { color: var(--text-muted); font-size: 0.8rem; }
 .top-bar .timer {
   background: var(--brown);
   color: #fff;

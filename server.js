@@ -211,8 +211,10 @@ function startTimer(room, duration, callback) {
   clearTimer(room);
   const dur = duration || room.timerDuration;
   room.timerEnd = Date.now() + dur * 1000;
+  room.timerCallback = callback;
   room.timerHandle = setTimeout(() => {
     room.timerHandle = null;
+    room.timerCallback = null;
     callback();
   }, dur * 1000);
   // Broadcast timer start
@@ -225,6 +227,7 @@ function clearTimer(room) {
     room.timerHandle = null;
   }
   room.timerEnd = null;
+  room.timerCallback = null;
 }
 
 // ─── Broadcasting ────────────────────────────────────────────────────────────
@@ -659,6 +662,9 @@ function resolvePhaseC(room) {
   // Pasture grows
   room.pastureCapacity += totalTributeValue;
 
+  // Save for round history (used in resolvePhaseD)
+  room.currentRoundTribute = totalTributeValue;
+
   broadcastDashboard(room, 'phaseC:resolved', {
     totalTributeValue,
     tributeBreakdown,
@@ -804,7 +810,7 @@ function resolvePhaseD(room) {
     pastureCapacity: room.pastureCapacity,
     totalHerdValue: totalHerdValue(room),
     famineCount: room.famineCount,
-    totalTribute: room.roundSummary?.totalTributeValue || 0,
+    totalTribute: room.currentRoundTribute || 0,
     totalPunishments: uniquePunishers,
     totalAnimalsLostToPunishment: totalAnimalsLost
   };
@@ -990,6 +996,12 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Block new players from joining mid-game (only reconnects allowed)
+    if (room.phase !== 'lobby' && room.phase !== 'betweenGames') {
+      if (callback) callback({ error: 'Gra jest w toku. Nie można dołączyć.' });
+      return;
+    }
+
     const player = {
       socketId: socket.id,
       name: name.substring(0, 20),
@@ -1159,15 +1171,28 @@ io.on('connection', (socket) => {
 
   socket.on('instructor:pause', () => {
     if (!currentRoom || !isInstructor) return;
-    currentRoom.isPaused = true;
-    clearTimer(currentRoom);
-    broadcastToRoom(currentRoom, 'game:paused', {});
+    const room = currentRoom;
+    room.isPaused = true;
+    // Save remaining time and callback before clearing
+    if (room.timerEnd) {
+      room.pausedRemaining = Math.max(1, Math.ceil((room.timerEnd - Date.now()) / 1000));
+      room.pausedCallback = room.timerCallback;
+    }
+    clearTimer(room);
+    broadcastToRoom(room, 'game:paused', {});
   });
 
   socket.on('instructor:resume', () => {
     if (!currentRoom || !isInstructor) return;
-    currentRoom.isPaused = false;
-    broadcastToRoom(currentRoom, 'game:resumed', {});
+    const room = currentRoom;
+    room.isPaused = false;
+    // Restart timer with remaining time
+    if (room.pausedRemaining && room.pausedCallback) {
+      startTimer(room, room.pausedRemaining, room.pausedCallback);
+      room.pausedRemaining = null;
+      room.pausedCallback = null;
+    }
+    broadcastToRoom(room, 'game:resumed', {});
   });
 
   socket.on('instructor:skipPhase', () => {
@@ -1281,6 +1306,19 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// ─── Room Cleanup ─────────────────────────────────────────────────────────────
+// Clean up empty rooms every 10 minutes
+setInterval(() => {
+  for (const [code, room] of Object.entries(rooms)) {
+    const hasConnectedPlayers = Object.values(room.players).some(p => !p.disconnected);
+    const dashboardAlive = room.dashboardSocket && io.sockets.sockets.get(room.dashboardSocket);
+    if (!hasConnectedPlayers && !dashboardAlive) {
+      clearTimer(room);
+      delete rooms[code];
+    }
+  }
+}, 10 * 60 * 1000);
 
 // ─── Start Server ────────────────────────────────────────────────────────────
 

@@ -18,6 +18,16 @@ let phaseASelections = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
 let timerInterval = null;
 let pendingSubmit = null; // { event, data } — retry on reconnect
 
+// Polish grammar helper for "jednostka"
+function jednostki(n) {
+  if (n === 1) return 'jednostka';
+  const lastTwo = n % 100;
+  const lastOne = n % 10;
+  if (lastTwo >= 12 && lastTwo <= 14) return 'jednostek';
+  if (lastOne >= 2 && lastOne <= 4) return 'jednostki';
+  return 'jednostek';
+}
+
 // ─── Reliable Submit ──────────────────────────────────────────────────────
 function reliableEmit(event, data, onSuccess) {
   pendingSubmit = { event, data };
@@ -219,7 +229,7 @@ function showPhaseA() {
   renderHerdValue(state.herd, 'phaseA-herd-value');
 
   const maxAcq = state.maxAcquisition || 2;
-  document.getElementById('budget-display').textContent = `Twój limit: ${maxAcq} jednostek`;
+  document.getElementById('budget-display').textContent = `Twój limit: ${maxAcq} ${jednostki(maxAcq)}`;
 
   renderAcquireRows(maxAcq);
   updateAcquireTotal(maxAcq);
@@ -285,7 +295,7 @@ function renderAcquireRows(maxAcq) {
 
 function updateAcquireTotal(maxAcq) {
   const total = ANIMAL_TYPES.reduce((s, t) => s + phaseASelections[t] * ANIMALS[t].value, 0);
-  document.getElementById('selected-total').textContent = `Wybrano: ${total} / ${maxAcq} jednostek`;
+  document.getElementById('selected-total').textContent = `Wybrano: ${total} / ${maxAcq} ${jednostki(maxAcq)}`;
 
   // Disable plus buttons that would exceed budget or pool
   for (const type of ANIMAL_TYPES) {
@@ -583,9 +593,6 @@ socket.on('phaseD:result', (data) => {
   document.getElementById('phaseD-result-value').textContent = 'Wartość stada: ' + data.herdValue;
 });
 
-function renderHerdInline(herd, containerId) {
-  // Will be called after innerHTML is set
-}
 
 socket.on('round:results', (data) => {
   state.pastureCapacity = data.pastureCapacity;

@@ -302,7 +302,11 @@ body {
   cursor: pointer;
   box-shadow: 0 6px 24px rgba(76,175,80,0.4);
   transition: transform 0.12s;
-  animation: pulse 1.5s infinite;
+  animation: nextBtnPulse 1.5s infinite;
+}
+@keyframes nextBtnPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.05); }
 }
 .next-phase-btn:hover {
   transform: translateX(-50%) scale(1.05);

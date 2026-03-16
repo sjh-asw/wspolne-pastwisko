@@ -549,11 +549,9 @@ socket.on('round:results', (data) => {
 // ─── Game Reset ───────────────────────────────────────────────────────────
 socket.on('game:reset', (data) => {
   state = {};
-  pastureChart = null;
-  const canvas = document.getElementById('pasture-chart');
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (pastureChart) {
+    pastureChart.destroy();
+    pastureChart = null;
   }
   showScreen('dash-lobby');
   document.getElementById('lobby-title').textContent = 'Gra 2 — Z komunikacją';
