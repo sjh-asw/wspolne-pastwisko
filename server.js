@@ -962,8 +962,9 @@ io.on('connection', (socket) => {
       currentRoom = room;
 
       if (callback) callback({ success: true, reconnected: true });
-      io.to(socket.id).emit('game:state', getGameStateForPlayer(room, oldPlayer));
       broadcastDashboard(room, 'player:reconnected', { name, playerCount: getPlayerCount(room) });
+      // Send updated state to ALL players (otherPlayers list contains socket IDs that change on reconnect)
+      sendGameState(room);
       return;
     }
 
