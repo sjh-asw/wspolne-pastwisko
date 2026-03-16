@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wspólne Pastwisko — Panel prowadzącego</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div id="dash-top-bar" class="dash-top-bar hidden">
+    <span id="dash-game-label" class="game-label">Gra 1: Bez komunikacji</span>
+    <span id="dash-round-phase" class="round-phase">Runda 1 z 5</span>
+    <span id="dash-timer" class="timer">30s</span>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="dash-lobby" class="dash-screen active">
+    <h1 id="lobby-title" style="font-size:1.5rem;color:var(--brown);margin-bottom:0.5rem;">Wspólne Pastwisko</h1>
+    <p style="color:var(--text-muted);margin-bottom:0.5rem;">Gra o tragedii wspólnego pastwiska</p>
+    <p id="room-url" class="room-url"></p>
+    <div id="room-code" class="room-code-display"></div>
+    <div class="player-count-display">Połączonych graczy: <span id="lobby-player-count">0</span></div>
+    <div id="lobby-player-list" class="player-list-lobby"></div>
+    <button id="start-game-btn" class="btn btn-primary" disabled>Rozpocznij Grę 1 — Bez komunikacji</button>
+  </div>
+
+  <!-- Game Dashboard -->
+  <div id="dash-game" class="dash-screen">
+    <div class="dash-game-layout">
+      <!-- Left Panel -->
+      <div class="dash-left">
+        <div class="pasture-meter">
+          <h2>Pastwisko</h2>
+          <div id="pasture-occupancy" class="occupancy">Zajętość: 0 / 0</div>
+          <div class="pasture-bar-large">
+            <div id="pasture-fill-large" class="fill green" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="famine-counter">
+          <span id="famine-label" class="label">Klęski głodu: 0/2</span>
+          <span id="famine-skulls" class="skulls">🦴🦴</span>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="pasture-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="dash-right">
+        <div class="phase-status" id="phase-status-content">
+          <!-- Dynamic content -->
+        </div>
+
+        <div class="leaderboard">
+          <h3>Ranking</h3>
+          <div id="leaderboard-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Screen -->
+  <div id="dash-comparison" class="dash-screen">
+    <div id="comparison-content" class="comparison-layout">
+      <!-- Dynamic content -->
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <button id="controls-toggle" class="controls-toggle">⚙</button>
+  <div id="controls-panel" class="controls-panel">
+    <h4>Kontrolki prowadzącego</h4>
+    <button id="ctrl-pause" class="ctrl-btn warning">⏸ Pauza</button>
+    <button id="ctrl-resume" class="ctrl-btn primary hidden">▶ Wznów</button>
+    <button id="ctrl-skip" class="ctrl-btn secondary">⏭ Pomiń fazę</button>
+    <button id="ctrl-end" class="ctrl-btn danger">⏹ Zakończ grę</button>
+    <button id="ctrl-reset-game2" class="ctrl-btn primary">🔄 Reset — Gra 2</button>
+    <button id="ctrl-toggle-anon" class="ctrl-btn secondary">👁 Pokaż/ukryj nazwy (kary)</button>
+    <h4 style="margin-top:0.8rem;">Timer (sekundy)</h4>
+    <div class="timer-controls">
+      <button class="timer-btn" data-duration="15">15s</button>
+      <button class="timer-btn active" data-duration="30">30s</button>
+      <button class="timer-btn" data-duration="45">45s</button>
+      <button class="timer-btn" data-duration="60">60s</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

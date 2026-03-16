@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wspólne Pastwisko</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--bg-dark);
+      color: var(--text-light);
+    }
+    .landing {
+      text-align: center;
+      padding: 2rem;
+      max-width: 420px;
+      width: 100%;
+    }
+    .landing h1 {
+      font-size: 2.4rem;
+      margin-bottom: 0.3rem;
+      color: var(--green);
+    }
+    .landing .subtitle {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 2.5rem;
+    }
+    .landing .emoji-row {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.3rem;
+    }
+    .landing a {
+      display: block;
+      padding: 1.2rem 2rem;
+      margin: 1rem 0;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .landing a:active {
+      transform: scale(0.97);
+    }
+    .btn-play {
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+    }
+    .btn-dashboard {
+      background: var(--brown);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(121,85,72,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="landing">
+    <div class="emoji-row">🐇 🐑 🐷 🐄</div>
+    <h1>Wspólne Pastwisko</h1>
+    <p class="subtitle">Gra o tragedii wspólnego pastwiska</p>
+    <a href="/play.html" class="btn-play">Dołącz do gry</a>
+    <a href="/dashboard.html" class="btn-dashboard">Panel prowadzącego</a>
+  </div>
+</body>
+</html>

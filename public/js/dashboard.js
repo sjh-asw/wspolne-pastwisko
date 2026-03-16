@@ -1,0 +1,578 @@
+/* ─── Instructor Dashboard ─────────────────────────────────────────────── */
+const socket = io();
+
+const ANIMALS = {
+  rabbit: { name: 'Królik', emoji: '🐇', value: 1 },
+  sheep:  { name: 'Owca',   emoji: '🐑', value: 2 },
+  pig:    { name: 'Świnia', emoji: '🐷', value: 4 },
+  cow:    { name: 'Krowa',  emoji: '🐄', value: 8 }
+};
+const ANIMAL_TYPES = ['rabbit', 'sheep', 'pig', 'cow'];
+
+let state = {};
+let roomCode = null;
+let pastureChart = null;
+let timerInterval = null;
+let controlsVisible = false;
+
+// ─── Screens ──────────────────────────────────────────────────────────────
+const screens = document.querySelectorAll('.dash-screen');
+function showScreen(id) {
+  screens.forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  document.getElementById('dash-top-bar').classList.toggle('hidden',
+    id === 'dash-lobby' || id === 'dash-comparison');
+}
+
+// ─── Create Room on Load ──────────────────────────────────────────────────
+socket.emit('room:create', (res) => {
+  roomCode = res.code;
+  document.getElementById('room-code').textContent = res.code;
+  document.getElementById('room-url').textContent = `Wejdź na: ${window.location.origin}`;
+  showScreen('dash-lobby');
+});
+
+// ─── Lobby ────────────────────────────────────────────────────────────────
+const playerListEl = document.getElementById('lobby-player-list');
+const playerCountEl = document.getElementById('lobby-player-count');
+const startBtn = document.getElementById('start-game-btn');
+
+socket.on('player:joined', ({ name, playerCount, players }) => {
+  playerCountEl.textContent = playerCount;
+  playerListEl.innerHTML = '';
+  for (const n of players) {
+    const chip = document.createElement('span');
+    chip.className = 'player-chip';
+    chip.textContent = n;
+    playerListEl.appendChild(chip);
+  }
+  startBtn.disabled = playerCount < 2;
+});
+
+socket.on('player:disconnected', ({ name, playerCount }) => {
+  playerCountEl.textContent = playerCount;
+});
+
+socket.on('player:reconnected', ({ name, playerCount }) => {
+  playerCountEl.textContent = playerCount;
+});
+
+startBtn.addEventListener('click', () => {
+  socket.emit('game:start');
+});
+
+// ─── Timer ────────────────────────────────────────────────────────────────
+socket.on('timer:start', ({ duration, endsAt }) => {
+  clearInterval(timerInterval);
+  const timerEl = document.getElementById('dash-timer');
+  function update() {
+    const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    timerEl.textContent = remaining + 's';
+    timerEl.classList.remove('warning', 'danger');
+    if (remaining <= 5) timerEl.classList.add('danger');
+    else if (remaining <= 10) timerEl.classList.add('warning');
+    if (remaining <= 0) clearInterval(timerInterval);
+  }
+  update();
+  timerInterval = setInterval(update, 200);
+});
+
+// ─── Game State ───────────────────────────────────────────────────────────
+socket.on('game:state', (s) => {
+  state = s;
+  if (s.phase === 'lobby' || s.phase === 'betweenGames') {
+    showScreen('dash-lobby');
+    if (s.gameNumber === 2) {
+      document.getElementById('lobby-title').textContent = 'Gra 2 — Z komunikacją';
+    }
+    return;
+  }
+  showScreen('dash-game');
+  updateDashboard();
+});
+
+socket.on('game:started', () => {
+  showScreen('dash-game');
+});
+
+function updateDashboard() {
+  // Top bar
+  document.getElementById('dash-game-label').textContent =
+    `Gra ${state.gameNumber}: ${state.gameNumber === 1 ? 'Bez komunikacji' : 'Z komunikacją'}`;
+  const phaseNames = {
+    phaseA: 'Faza A: Dobranie zwierząt',
+    phaseB: 'Faza B: Klęska głodu',
+    phaseC: 'Faza C: Danina',
+    phaseD: 'Faza D: Porachunki',
+    roundResults: 'Wyniki rundy',
+    gameOver: 'Gra zakończona'
+  };
+  document.getElementById('dash-round-phase').textContent =
+    `Runda ${state.round} z 5 — ${phaseNames[state.phase] || ''}`;
+
+  // Pasture meter
+  updatePastureMeter();
+  // Famine counter
+  updateFamineCounter();
+  // Leaderboard
+  updateLeaderboard();
+  // Phase status
+  updatePhaseStatus();
+  // Chart
+  updateChart();
+}
+
+function updatePastureMeter() {
+  const total = state.totalHerdValue || 0;
+  const cap = state.pastureCapacity || 1;
+  const pct = Math.min(100, (total / cap) * 100);
+
+  document.getElementById('pasture-occupancy').textContent = `Zajętość: ${total} / ${cap}`;
+
+  const fill = document.getElementById('pasture-fill-large');
+  fill.style.width = pct + '%';
+  fill.className = 'fill';
+  if (pct < 60) fill.classList.add('green');
+  else if (pct < 80) fill.classList.add('yellow');
+  else if (pct < 95) fill.classList.add('orange');
+  else fill.classList.add('red');
+}
+
+function updateFamineCounter() {
+  const count = state.famineCount || 0;
+  document.getElementById('famine-label').textContent = `Klęski głodu: ${count}/2`;
+  const skulls = count >= 2 ? '☠️☠️' : count === 1 ? '☠️🦴' : '🦴🦴';
+  document.getElementById('famine-skulls').textContent = skulls;
+}
+
+function updateLeaderboard() {
+  const players = state.players || {};
+  const list = Object.entries(players)
+    .map(([id, p]) => ({ id, ...p }))
+    .sort((a, b) => b.herdValue - a.herdValue);
+
+  const container = document.getElementById('leaderboard-list');
+  container.innerHTML = '';
+
+  // Top 5
+  const top = list.slice(0, 5);
+  const bottom = list.length > 8 ? list.slice(-3) : [];
+
+  top.forEach((p, i) => {
+    container.appendChild(createLeaderboardItem(i + 1, p));
+  });
+
+  if (bottom.length > 0 && list.length > 8) {
+    const sep = document.createElement('div');
+    sep.className = 'leaderboard-separator';
+    sep.textContent = `··· ${list.length - 8} więcej ···`;
+    container.appendChild(sep);
+
+    bottom.forEach((p, i) => {
+      container.appendChild(createLeaderboardItem(list.length - 2 + i, p));
+    });
+  } else if (list.length > 5) {
+    list.slice(5).forEach((p, i) => {
+      container.appendChild(createLeaderboardItem(6 + i, p));
+    });
+  }
+}
+
+function createLeaderboardItem(rank, p) {
+  const item = document.createElement('div');
+  item.className = 'leaderboard-item';
+  if (p.eliminated) item.style.opacity = '0.4';
+
+  let icons = '';
+  for (const t of ANIMAL_TYPES) {
+    const c = p.herd[t] || 0;
+    if (c > 0) icons += ANIMALS[t].emoji + (c > 1 ? c : '') + ' ';
+  }
+
+  item.innerHTML = `
+    <span class="rank">#${rank}</span>
+    <span class="name">${p.name}</span>
+    <span class="herd-icons">${icons}</span>
+    <span class="value">${p.herdValue}</span>
+  `;
+  return item;
+}
+
+function updatePhaseStatus() {
+  const el = document.getElementById('phase-status-content');
+  const counts = state.submissionCounts || {};
+  const total = state.playerCount || 0;
+
+  if (state.phase === 'phaseA') {
+    const count = counts.phaseA || 0;
+    el.innerHTML = `
+      <h3>Faza A: Dobranie zwierząt</h3>
+      <div class="submission-counter">Decyzje: ${count}/${total} ✓</div>
+      <div class="phase-detail" id="phaseA-detail"></div>
+    `;
+  } else if (state.phase === 'phaseC') {
+    const count = counts.phaseC || 0;
+    el.innerHTML = `
+      <h3>Faza C: Danina</h3>
+      <div class="submission-counter">Daniny: ${count}/${total} ✓</div>
+      <div class="phase-detail" id="phaseC-detail"></div>
+    `;
+  } else if (state.phase === 'phaseD') {
+    const count = counts.phaseD || 0;
+    el.innerHTML = `
+      <h3>Faza D: Porachunki</h3>
+      <div class="submission-counter">Porachunki: ${count}/${total} ✓</div>
+      <div class="phase-detail" id="phaseD-detail"></div>
+    `;
+  } else if (state.phase === 'phaseB') {
+    el.innerHTML = `<h3>Faza B: Klęska głodu</h3><div class="submission-counter" style="color:var(--red);">Sprawdzanie...</div>`;
+  } else if (state.phase === 'roundResults') {
+    el.innerHTML = `<h3>Wyniki rundy ${state.round}</h3>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+// ─── Submission counts ────────────────────────────────────────────────────
+socket.on('submission:count', ({ phase, count, total }) => {
+  if (state.submissionCounts) state.submissionCounts[phase] = count;
+  const counterEl = document.querySelector('.submission-counter');
+  if (counterEl) {
+    const labels = { phaseA: 'Decyzje', phaseC: 'Daniny', phaseD: 'Porachunki' };
+    counterEl.textContent = `${labels[phase] || ''}: ${count}/${total} ✓`;
+  }
+});
+
+// ─── Phase Results ────────────────────────────────────────────────────────
+socket.on('phaseA:resolved', (data) => {
+  // Update pool
+  if (data.pool) state.pool = data.pool;
+
+  // Show acquisition bar chart
+  const detail = document.getElementById('phaseA-detail');
+  if (!detail) return;
+
+  const entries = Object.values(data.acquisitionDetails)
+    .sort((a, b) => b.acquiredValue - a.acquiredValue);
+  const maxVal = Math.max(1, ...entries.map(e => e.acquiredValue));
+
+  let html = `<p style="margin-bottom:0.5rem;">Łącznie pozyskano: ${data.totalAcquiredValue} jednostek</p>`;
+  html += `<p style="font-size:0.8rem;color:var(--text-muted);">Pula: ${ANIMAL_TYPES.map(t => ANIMALS[t].emoji + data.pool[t]).join(' ')}</p>`;
+  html += '<div class="bar-chart">';
+  for (const e of entries.slice(0, 10)) {
+    const w = (e.acquiredValue / maxVal * 100);
+    html += `<div class="bar-row">
+      <span class="bar-label">${e.name}</span>
+      <div class="bar" style="width:${w}%"></div>
+      <span class="bar-value">${e.acquiredValue}</span>
+    </div>`;
+  }
+  html += '</div>';
+  detail.innerHTML = html;
+});
+
+socket.on('phaseB:result', (data) => {
+  if (data.famine) {
+    state.famineCount = data.famineCount;
+    state.pastureCapacity = data.pastureCapacity;
+    state.totalHerdValue = data.totalHerdValue;
+    updatePastureMeter();
+    updateFamineCounter();
+  }
+});
+
+socket.on('phaseC:resolved', (data) => {
+  state.pastureCapacity = data.pastureCapacity;
+  updatePastureMeter();
+
+  const detail = document.getElementById('phaseC-detail');
+  if (!detail) return;
+
+  const bd = data.tributeBreakdown;
+  let parts = [];
+  for (const t of ANIMAL_TYPES) {
+    if (bd[t] > 0) parts.push(`${bd[t]} ${ANIMALS[t].name.toLowerCase()}`);
+  }
+  detail.innerHTML = `<p>${parts.join(', ')} → pastwisko +${data.totalTributeValue}</p>`;
+});
+
+socket.on('phaseD:resolved', (data) => {
+  const detail = document.getElementById('phaseD-detail');
+  if (!detail) return;
+
+  let html = `<p>${data.uniquePunishers} graczy ukarało kogoś. ${data.uniqueTargets} osób było karanych.</p>`;
+  html += `<p>Utracono łącznie: ${data.totalAnimalsLost} zwierząt</p>`;
+
+  // Punishment bar chart
+  if (data.punishmentResults && data.uniqueTargets > 0) {
+    const targets = {};
+    for (const [sid, r] of Object.entries(data.punishmentResults)) {
+      if (r.wasTarget && r.punishedBy > 0) {
+        const name = state.players?.[sid]?.name || '???';
+        targets[sid] = { name: data.punishmentAnonymous ? `Gracz ${Object.keys(targets).length + 1}` : name, count: r.punishedBy };
+      }
+    }
+    const targetList = Object.values(targets).sort((a, b) => b.count - a.count);
+    const maxP = Math.max(1, ...targetList.map(t => t.count));
+
+    html += '<div class="bar-chart">';
+    for (const t of targetList) {
+      const w = (t.count / maxP * 100);
+      html += `<div class="bar-row">
+        <span class="bar-label">${t.name}</span>
+        <div class="bar punishment" style="width:${w}%"></div>
+        <span class="bar-value">${t.count}</span>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  detail.innerHTML = html;
+});
+
+// ─── Chart.js ─────────────────────────────────────────────────────────────
+function updateChart() {
+  const history = state.history || [];
+  if (history.length === 0) return;
+
+  const canvas = document.getElementById('pasture-chart');
+  const ctx = canvas.getContext('2d');
+
+  const labels = history.map(h => `R${h.round}`);
+  const capacityData = history.map(h => h.pastureCapacity);
+  const herdData = history.map(h => h.totalHerdValue);
+
+  if (pastureChart) {
+    pastureChart.data.labels = labels;
+    pastureChart.data.datasets[0].data = capacityData;
+    pastureChart.data.datasets[1].data = herdData;
+    pastureChart.update();
+    return;
+  }
+
+  if (typeof Chart === 'undefined') return;
+
+  pastureChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Pojemność pastwiska',
+          data: capacityData,
+          borderColor: '#4CAF50',
+          backgroundColor: 'rgba(76,175,80,0.1)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 3
+        },
+        {
+          label: 'Łączna wartość stad',
+          data: herdData,
+          borderColor: '#FF9800',
+          backgroundColor: 'rgba(255,152,0,0.1)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+// ─── Game Over ────────────────────────────────────────────────────────────
+socket.on('game:over', (data) => {
+  if (data.gameNumber === 1) {
+    // Show between-games comparison
+    showScreen('dash-comparison');
+    renderComparison(data);
+  } else {
+    // Final comparison of both games
+    showScreen('dash-comparison');
+    renderFinalComparison(data);
+  }
+});
+
+socket.on('game:betweenGames', (data) => {
+  showScreen('dash-comparison');
+  renderComparison(data.game1Results || data);
+});
+
+function renderComparison(g1) {
+  const container = document.getElementById('comparison-content');
+
+  let html = `
+    <div class="comparison-card" style="grid-column: 1 / -1; text-align:center;">
+      <h3>Gra 1 — Bez komunikacji — Zakończona</h3>
+      <div class="stat-highlight" style="color:var(--brown);">Wyniki</div>
+    </div>
+    <div class="comparison-card">
+      <h3>Statystyki</h3>
+      <div class="stat-row"><span class="label">Rundy rozegrane</span><span class="value">${g1.roundsSurvived}</span></div>
+      <div class="stat-row"><span class="label">Klęski głodu</span><span class="value">${g1.faminesOccurred}</span></div>
+      <div class="stat-row"><span class="label">Średnia wartość stada</span><span class="value">${g1.avgHerdValue}</span></div>
+      <div class="stat-row"><span class="label">Współczynnik Giniego</span><span class="value">${g1.gini}</span></div>
+      <div class="stat-row"><span class="label">Łączne kary</span><span class="value">${g1.totalPunishments}</span></div>
+    </div>
+    <div class="comparison-card">
+      <h3>Tabela wyników</h3>
+  `;
+
+  for (const s of (g1.scores || []).slice(0, 10)) {
+    let icons = '';
+    for (const t of ANIMAL_TYPES) {
+      if (s.herd[t] > 0) icons += ANIMALS[t].emoji + s.herd[t] + ' ';
+    }
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${icons} = ${s.score}</span></div>`;
+  }
+
+  html += `</div>
+    <div class="comparison-card" style="grid-column: 1 / -1; text-align:center;">
+      <button id="reset-game2-btn" class="btn btn-primary" style="font-size:1.3rem;padding:1rem 3rem;">
+        Reset — Rozpocznij Grę 2 — Z komunikacją
+      </button>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  document.getElementById('reset-game2-btn').addEventListener('click', () => {
+    socket.emit('instructor:resetGame2');
+  });
+}
+
+function renderFinalComparison(g2) {
+  const g1 = g2.game1Results || state.game1Results;
+  const container = document.getElementById('comparison-content');
+
+  if (!g1) {
+    container.innerHTML = '<h2>Gra zakończona</h2>';
+    return;
+  }
+
+  let html = `
+    <div class="comparison-card" style="grid-column: 1 / -1; text-align:center;">
+      <h3>Porównanie: Gra 1 vs Gra 2</h3>
+    </div>
+    <div class="comparison-card">
+      <h3>Gra 1 — Bez komunikacji</h3>
+      <div class="stat-row"><span class="label">Rundy</span><span class="value">${g1.roundsSurvived}</span></div>
+      <div class="stat-row"><span class="label">Klęski głodu</span><span class="value">${g1.faminesOccurred}</span></div>
+      <div class="stat-row"><span class="label">Średnia wartość stada</span><span class="value">${g1.avgHerdValue}</span></div>
+      <div class="stat-row"><span class="label">Wsp. Giniego (nierówność)</span><span class="value">${g1.gini}</span></div>
+      <div class="stat-row"><span class="label">Łączne kary</span><span class="value">${g1.totalPunishments}</span></div>
+    </div>
+    <div class="comparison-card">
+      <h3>Gra 2 — Z komunikacją</h3>
+      <div class="stat-row"><span class="label">Rundy</span><span class="value">${g2.roundsSurvived}</span></div>
+      <div class="stat-row"><span class="label">Klęski głodu</span><span class="value">${g2.faminesOccurred}</span></div>
+      <div class="stat-row"><span class="label">Średnia wartość stada</span><span class="value">${g2.avgHerdValue}</span></div>
+      <div class="stat-row"><span class="label">Wsp. Giniego (nierówność)</span><span class="value">${g2.gini}</span></div>
+      <div class="stat-row"><span class="label">Łączne kary</span><span class="value">${g2.totalPunishments}</span></div>
+    </div>
+  `;
+
+  // Highlight key differences
+  const betterFamine = g2.faminesOccurred < g1.faminesOccurred;
+  const betterGini = g2.gini < g1.gini;
+  const betterAvg = g2.avgHerdValue > g1.avgHerdValue;
+
+  html += `<div class="comparison-card" style="grid-column: 1 / -1;">
+    <h3>Wnioski</h3>
+    <div class="stat-row"><span class="label">Mniej klęsk głodu z komunikacją?</span><span class="value">${betterFamine ? '✅ Tak' : '❌ Nie'}</span></div>
+    <div class="stat-row"><span class="label">Mniejsza nierówność z komunikacją?</span><span class="value">${betterGini ? '✅ Tak' : '❌ Nie'}</span></div>
+    <div class="stat-row"><span class="label">Wyższa średnia wartość stada?</span><span class="value">${betterAvg ? '✅ Tak' : '❌ Nie'}</span></div>
+  </div>`;
+
+  // Combined scoreboard
+  html += `<div class="comparison-card"><h3>Gra 1 — Top 10</h3>`;
+  for (const s of (g1.scores || []).slice(0, 10)) {
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${s.score}</span></div>`;
+  }
+  html += `</div><div class="comparison-card"><h3>Gra 2 — Top 10</h3>`;
+  for (const s of (g2.scores || []).slice(0, 10)) {
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${s.score}</span></div>`;
+  }
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+// ─── Round Results ────────────────────────────────────────────────────────
+socket.on('round:results', (data) => {
+  state.history = data.history;
+  state.pastureCapacity = data.pastureCapacity;
+  state.totalHerdValue = data.totalHerdValue;
+  state.famineCount = data.famineCount;
+  updateDashboard();
+});
+
+// ─── Game Reset ───────────────────────────────────────────────────────────
+socket.on('game:reset', (data) => {
+  state = {};
+  pastureChart = null;
+  const canvas = document.getElementById('pasture-chart');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  showScreen('dash-lobby');
+  document.getElementById('lobby-title').textContent = 'Gra 2 — Z komunikacją';
+  startBtn.textContent = 'Rozpocznij Grę 2 — Z komunikacją';
+});
+
+// ─── Controls Panel ───────────────────────────────────────────────────────
+document.getElementById('controls-toggle').addEventListener('click', () => {
+  controlsVisible = !controlsVisible;
+  document.getElementById('controls-panel').classList.toggle('visible', controlsVisible);
+});
+
+document.getElementById('ctrl-pause').addEventListener('click', () => {
+  socket.emit('instructor:pause');
+  document.getElementById('ctrl-pause').classList.add('hidden');
+  document.getElementById('ctrl-resume').classList.remove('hidden');
+});
+
+document.getElementById('ctrl-resume').addEventListener('click', () => {
+  socket.emit('instructor:resume');
+  document.getElementById('ctrl-resume').classList.add('hidden');
+  document.getElementById('ctrl-pause').classList.remove('hidden');
+});
+
+document.getElementById('ctrl-skip').addEventListener('click', () => {
+  socket.emit('instructor:skipPhase');
+});
+
+document.getElementById('ctrl-end').addEventListener('click', () => {
+  if (confirm('Czy na pewno chcesz zakończyć grę?')) {
+    socket.emit('instructor:endGame');
+  }
+});
+
+document.getElementById('ctrl-reset-game2').addEventListener('click', () => {
+  socket.emit('instructor:resetGame2');
+});
+
+// Timer controls
+document.querySelectorAll('.timer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const dur = parseInt(btn.dataset.duration);
+    socket.emit('instructor:setTimer', { duration: dur });
+    document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+document.getElementById('ctrl-toggle-anon').addEventListener('click', () => {
+  socket.emit('instructor:togglePunishmentAnonymity');
+});

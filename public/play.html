@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Wspólne Pastwisko — Gra</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/play.css">
+</head>
+<body>
+  <!-- Top Bar -->
+  <div id="top-bar" class="top-bar hidden">
+    <span id="round-display" class="round-info">Runda 1 z 5</span>
+    <span id="topbar-pasture">🌿 0</span>
+    <span id="topbar-herd-value">🐾 0</span>
+    <span id="timer" class="timer">30s</span>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="lobby-screen" class="screen active">
+    <h1>🐇🐑🐷🐄</h1>
+    <h1>Wspólne Pastwisko</h1>
+    <p class="subtitle">Gra o tragedii wspólnego pastwiska</p>
+
+    <div id="join-form">
+      <input type="text" id="room-code-input" placeholder="Kod pokoju" maxlength="4" autocomplete="off">
+      <input type="text" id="name-input" placeholder="Twoja nazwa" maxlength="20" autocomplete="off">
+      <button id="join-btn" class="btn btn-primary">Dołącz</button>
+      <p id="lobby-error" class="lobby-error"></p>
+    </div>
+
+    <div id="waiting-area" class="hidden">
+      <p id="waiting-msg" class="waiting-msg">Oczekiwanie na rozpoczęcie gry...</p>
+      <div class="player-count-badge">Graczy: <span id="lobby-player-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- Phase A: Acquire Animals -->
+  <div id="phaseA-screen" class="screen">
+    <div class="phase-title">Faza A: Dobranie zwierząt</div>
+    <div class="phase-desc">Wybierz zwierzęta z puli</div>
+
+    <div class="pasture-info">
+      <span id="pasture-text">Pastwisko: 0 / 0</span>
+    </div>
+    <div class="pasture-bar"><div id="pasture-fill" class="pasture-bar-fill"></div></div>
+
+    <div class="herd-display">
+      <h3>Twoje stado</h3>
+      <div id="phaseA-herd" class="herd-animals"></div>
+      <div id="phaseA-herd-value" class="herd-value"></div>
+    </div>
+
+    <div id="phaseA-form">
+      <div id="budget-display" class="budget-display">Twój limit: 2 jednostek</div>
+      <div id="acquire-rows"></div>
+      <div id="selected-total" class="selected-total">Wybrano: 0 / 2 jednostek</div>
+      <button id="phaseA-confirm" class="btn btn-primary submit-btn">Zatwierdź</button>
+    </div>
+
+    <div id="phaseA-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Oczekiwanie na innych graczy...</p>
+      <p id="phaseA-result-text" class="waiting-count"></p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Famine Screen -->
+  <div id="famine-screen" class="screen">
+    <div class="famine-icon">🔥</div>
+    <div class="famine-title">KLĘSKA GŁODU!</div>
+    <div class="losses-list">
+      <h4>Straciłeś:</h4>
+      <div id="famine-losses"></div>
+    </div>
+    <div class="herd-display">
+      <h3>Pozostaje ci:</h3>
+      <div id="famine-remaining-herd" class="herd-animals"></div>
+      <div id="famine-remaining-value" class="herd-value"></div>
+    </div>
+    <p id="famine-pasture" style="text-align:center;margin-top:1rem;color:var(--orange);"></p>
+    <div id="famine-eliminated" class="hidden" style="text-align:center;margin-top:1rem;color:var(--red);font-weight:700;">
+      Wszystkie twoje zwierzęta padły. Zostałeś wyeliminowany.
+    </div>
+  </div>
+
+  <!-- Phase C: Tribute -->
+  <div id="phaseC-screen" class="screen">
+    <div class="phase-title">Faza C: Danina</div>
+    <div class="phase-desc">Oddaj jedno zwierzę na wspólne pastwisko</div>
+
+    <div class="herd-display">
+      <h3>Twoje stado</h3>
+      <div id="phaseC-herd" class="herd-animals"></div>
+    </div>
+
+    <div id="phaseC-form">
+      <div id="tribute-animals" class="tribute-animals"></div>
+      <button id="phaseC-confirm" class="btn btn-primary submit-btn" disabled>Zatwierdź daninę</button>
+    </div>
+
+    <div id="phaseC-exempt" class="hidden">
+      <p class="exempt-msg">Jesteś zwolniony z daniny — masz tylko jedno zwierzę.</p>
+    </div>
+
+    <div id="phaseC-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Oczekiwanie na innych graczy...</p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Phase D: Punishment -->
+  <div id="phaseD-screen" class="screen">
+    <div class="phase-title">Faza D: Porachunki</div>
+    <div class="phase-desc">Czy chcesz ukarać innego gracza?</div>
+
+    <div class="punishment-info">
+      Kara kosztuje! Ty i wybrany gracz tracicie po jednym zwierzęciu.
+    </div>
+
+    <div id="phaseD-form">
+      <div id="punishment-player-list" class="player-list"></div>
+      <div class="punishment-actions">
+        <button id="punish-btn" class="btn btn-danger" disabled>Karuję: ...</button>
+        <button id="no-punish-btn" class="btn btn-outline">Nie karuję nikogo</button>
+      </div>
+    </div>
+
+    <div id="phaseD-exempt" class="hidden">
+      <p class="exempt-msg">Nie możesz karać — masz tylko jedno zwierzę.</p>
+    </div>
+
+    <div id="phaseD-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Oczekiwanie na innych graczy...</p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Phase D Results -->
+  <div id="phaseD-result-screen" class="screen">
+    <div class="phase-title">Wyniki porachunków</div>
+    <div id="phaseD-result-content"></div>
+    <div class="herd-display" style="margin-top:1rem;">
+      <h3>Twoje stado</h3>
+      <div id="phaseD-result-herd" class="herd-animals"></div>
+      <div id="phaseD-result-value" class="herd-value"></div>
+    </div>
+  </div>
+
+  <!-- Round Results -->
+  <div id="round-results-screen" class="screen">
+    <div class="round-results-screen">
+      <h2 id="round-result-round">Koniec rundy</h2>
+      <div class="herd-display">
+        <h3>Twoje stado</h3>
+        <div id="round-result-herd" class="herd-animals"></div>
+        <div id="round-result-value" class="herd-value"></div>
+      </div>
+      <p id="round-result-pasture" style="margin-top:1rem;color:var(--green);font-weight:600;"></p>
+      <p style="margin-top:2rem;color:var(--text-muted);">Następna runda...</p>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameover-screen" class="screen">
+    <h1>Gra zakończona!</h1>
+    <div class="final-score" id="gameover-score">0 pkt</div>
+    <div class="final-rank" id="gameover-rank">Miejsce — z —</div>
+
+    <h3 style="margin-bottom:0.5rem;">Tabela wyników</h3>
+    <div id="gameover-scoreboard" class="scoreboard"></div>
+
+    <div id="gameover-waiting-game2" class="hidden" style="margin-top:2rem;text-align:center;color:var(--text-muted);">
+      <p>Prowadzący przygotowuje Grę 2...</p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/play.js"></script>
+</body>
+</html>
