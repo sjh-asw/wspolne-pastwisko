@@ -115,6 +115,8 @@ function updateDashboard() {
 
   // Pasture meter
   updatePastureMeter();
+  // Round counter
+  updateRoundCounter();
   // Famine counter
   updateFamineCounter();
   // Leaderboard
@@ -139,6 +141,17 @@ function updatePastureMeter() {
   else if (pct < 80) fill.classList.add('yellow');
   else if (pct < 95) fill.classList.add('orange');
   else fill.classList.add('red');
+}
+
+function updateRoundCounter() {
+  const round = state.round || 0;
+  const maxRounds = 5;
+  document.getElementById('round-label').textContent = `Runda: ${round}/${maxRounds}`;
+  let dots = '';
+  for (let i = 1; i <= maxRounds; i++) {
+    dots += i <= round ? '🟩' : '⬜';
+  }
+  document.getElementById('round-dots').textContent = dots;
 }
 
 function updateFamineCounter() {

@@ -145,6 +145,32 @@ body {
 .pasture-bar-large .fill.orange { background: var(--orange); }
 .pasture-bar-large .fill.red { background: var(--red); }
 
+/* Status Counters (Round + Famine side by side) */
+.status-counters {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Round Counter */
+.round-counter {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+.round-counter .label {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.round-counter .dots {
+  font-size: 1.6rem;
+  letter-spacing: 0.2rem;
+}
+
 /* Famine Counter */
 .famine-counter {
   background: #fff;
@@ -154,6 +180,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1;
 }
 .famine-counter .label {
   font-size: 1.1rem;
