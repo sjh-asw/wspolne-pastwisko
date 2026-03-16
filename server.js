@@ -321,7 +321,12 @@ function getGameStateForPlayer(room, player) {
     otherPlayers,
     playerCount: getPlayerCount(room),
     timerDuration: room.timerDuration,
-    roundSummary: room.roundSummary
+    roundSummary: room.roundSummary,
+    hasSubmitted: {
+      phaseA: !!room.phaseASubmissions[player.socketId],
+      phaseC: !!room.phaseCSubmissions[player.socketId],
+      phaseD: !!room.phaseDSubmissions[player.socketId]
+    }
   };
 }
 
@@ -961,10 +966,26 @@ io.on('connection', (socket) => {
       room.players[socket.id] = oldPlayer;
       currentRoom = room;
 
+      // Migrate submission keys from old socket ID to new socket ID
+      for (const submMap of [room.phaseASubmissions, room.phaseCSubmissions, room.phaseDSubmissions]) {
+        if (submMap[oldSid] !== undefined) {
+          submMap[socket.id] = submMap[oldSid];
+          delete submMap[oldSid];
+        }
+      }
+
       if (callback) callback({ success: true, reconnected: true });
       broadcastDashboard(room, 'player:reconnected', { name, playerCount: getPlayerCount(room) });
-      // Send updated state to ALL players (otherPlayers list contains socket IDs that change on reconnect)
-      sendGameState(room);
+
+      // Send state to reconnected player
+      io.to(socket.id).emit('game:state', getGameStateForPlayer(room, oldPlayer));
+      // During phaseD, other players need updated otherPlayers list (socket IDs changed)
+      if (room.phase === 'phaseD') {
+        for (const [sid, p] of Object.entries(room.players)) {
+          if (p.isSpectator || sid === socket.id) continue;
+          io.to(sid).emit('game:state', getGameStateForPlayer(room, p));
+        }
+      }
       return;
     }
 

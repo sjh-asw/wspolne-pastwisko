@@ -56,15 +56,24 @@ socket.on('connect', () => {
   // Re-join room on reconnect
   if (joined && myName) {
     const code = document.getElementById('room-code-input').value.trim().toUpperCase();
-    socket.emit('room:join', { code, name: myName }, () => {});
-  }
-  // Retry pending submission
-  if (pendingSubmit) {
-    const { event, data } = pendingSubmit;
-    socket.emit(event, data, (res) => {
-      if (res && res.ok) {
-        pendingSubmit = null;
-        showConnectionWarning(false);
+    socket.emit('room:join', { code, name: myName }, (res) => {
+      // After successful rejoin, retry pending submission if server hasn't recorded it yet
+      if (pendingSubmit && state.hasSubmitted) {
+        const phase = pendingSubmit.event.split(':')[0]; // 'phaseA', 'phaseC', 'phaseD'
+        if (state.hasSubmitted[phase]) {
+          // Server already has our submission (auto-submitted on disconnect)
+          pendingSubmit = null;
+          return;
+        }
+      }
+      if (pendingSubmit) {
+        const { event, data } = pendingSubmit;
+        socket.emit(event, data, (res) => {
+          if (res && res.ok) {
+            pendingSubmit = null;
+            showConnectionWarning(false);
+          }
+        });
       }
     });
   }
@@ -181,9 +190,26 @@ function updatePastureInfo() {
   fill.style.background = pct < 60 ? 'var(--green)' : pct < 80 ? 'var(--yellow)' : pct < 95 ? 'var(--orange)' : 'var(--red)';
 }
 
+// ─── Waiting Screen (for phases without player input, e.g. phaseB) ───────
+function showPhaseWaiting(msg) {
+  showScreen('round-results-screen');
+  document.getElementById('round-result-round').textContent = msg || 'Oczekiwanie...';
+  document.getElementById('round-result-herd').innerHTML = '';
+  document.getElementById('round-result-value').textContent = '';
+  document.getElementById('round-result-pasture').textContent = '';
+}
+
 // ─── Phase A: Acquire ─────────────────────────────────────────────────────
 function showPhaseA() {
   showScreen('phaseA-screen');
+
+  // If server already has our submission (e.g. after reconnect), show submitted screen
+  if (state.hasSubmitted && state.hasSubmitted.phaseA) {
+    document.getElementById('phaseA-form').classList.add('hidden');
+    document.getElementById('phaseA-submitted').classList.remove('hidden');
+    return;
+  }
+
   phaseASelections = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
   document.getElementById('phaseA-submitted').classList.add('hidden');
   document.getElementById('phaseA-form').classList.remove('hidden');
@@ -286,9 +312,17 @@ document.getElementById('phaseA-confirm').addEventListener('click', () => {
 // ─── Phase C: Tribute ─────────────────────────────────────────────────────
 function showPhaseC() {
   showScreen('phaseC-screen');
+
+  // If server already has our submission (e.g. after reconnect), show submitted screen
+  if (state.hasSubmitted && state.hasSubmitted.phaseC) {
+    document.getElementById('phaseC-form').classList.add('hidden');
+    document.getElementById('phaseC-exempt').classList.add('hidden');
+    document.getElementById('phaseC-submitted').classList.remove('hidden');
+    return;
+  }
+
   selectedTribute = null;
   document.getElementById('phaseC-submitted').classList.add('hidden');
-  document.getElementById('phaseC-confirm').disabled = false;
 
   const herd = state.herd;
   const count = calcHerdCount(herd);
@@ -343,6 +377,15 @@ document.getElementById('phaseC-confirm').addEventListener('click', () => {
 // ─── Phase D: Punishment ──────────────────────────────────────────────────
 function showPhaseD() {
   showScreen('phaseD-screen');
+
+  // If server already has our submission (e.g. after reconnect), show submitted screen
+  if (state.hasSubmitted && state.hasSubmitted.phaseD) {
+    document.getElementById('phaseD-form').classList.add('hidden');
+    document.getElementById('phaseD-exempt').classList.add('hidden');
+    document.getElementById('phaseD-submitted').classList.remove('hidden');
+    return;
+  }
+
   selectedPunishTarget = null;
   document.getElementById('phaseD-submitted').classList.add('hidden');
   document.getElementById('punish-btn').disabled = true;
@@ -413,7 +456,16 @@ socket.on('game:state', (s) => {
   updateTopBar();
   updatePastureInfo();
 
+  // Clear pending submit if server already has our submission
+  if (pendingSubmit && s.hasSubmitted) {
+    const phase = pendingSubmit.event.split(':')[0];
+    if (s.hasSubmitted[phase]) {
+      pendingSubmit = null;
+    }
+  }
+
   if (s.phase === 'phaseA') showPhaseA();
+  else if (s.phase === 'phaseB') showPhaseWaiting('Sprawdzanie pastwiska...');
   else if (s.phase === 'phaseC') showPhaseC();
   else if (s.phase === 'phaseD') showPhaseD();
   else if (s.phase === 'roundResults') showRoundResults();
