@@ -187,6 +187,7 @@ function showPhaseA() {
   phaseASelections = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
   document.getElementById('phaseA-submitted').classList.add('hidden');
   document.getElementById('phaseA-form').classList.remove('hidden');
+  document.getElementById('phaseA-confirm').disabled = false;
 
   renderHerd(state.herd, 'phaseA-herd');
   renderHerdValue(state.herd, 'phaseA-herd-value');
@@ -287,6 +288,7 @@ function showPhaseC() {
   showScreen('phaseC-screen');
   selectedTribute = null;
   document.getElementById('phaseC-submitted').classList.add('hidden');
+  document.getElementById('phaseC-confirm').disabled = false;
 
   const herd = state.herd;
   const count = calcHerdCount(herd);
@@ -343,6 +345,7 @@ function showPhaseD() {
   showScreen('phaseD-screen');
   selectedPunishTarget = null;
   document.getElementById('phaseD-submitted').classList.add('hidden');
+  document.getElementById('phaseD-confirm').disabled = false;
 
   const herd = state.herd;
   const count = calcHerdCount(herd);
