@@ -469,8 +469,9 @@ function resolvePhaseA(room) {
     pool: { ...room.pool }
   });
 
-  // Move to Phase B (famine check)
-  setTimeout(() => startPhaseB(room), 2000);
+  // Wait for instructor to advance to Phase B
+  room.pendingNext = () => startPhaseB(room);
+  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'phaseB' });
 }
 
 function startPhaseB(room) {
@@ -487,7 +488,9 @@ function startPhaseB(room) {
       capacity,
       pastureCapacity: room.pastureCapacity
     });
-    setTimeout(() => startPhaseC(room), 2000);
+    // Wait for instructor to advance to Phase C
+    room.pendingNext = () => startPhaseC(room);
+    broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'phaseC' });
     return;
   }
 
@@ -576,11 +579,14 @@ function startPhaseB(room) {
 
   // Check if game ends (2 famines)
   if (room.famineCount >= MAX_FAMINES) {
-    setTimeout(() => endGame(room), 8000);
+    room.pendingNext = () => endGame(room);
+    broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'gameOver' });
     return;
   }
 
-  setTimeout(() => startPhaseC(room), 8000);
+  // Wait for instructor to advance to Phase C
+  room.pendingNext = () => startPhaseC(room);
+  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'phaseC' });
 }
 
 function startPhaseC(room) {
@@ -660,7 +666,9 @@ function resolvePhaseC(room) {
     pastureCapacity: room.pastureCapacity
   });
 
-  setTimeout(() => startPhaseD(room), 2000);
+  // Wait for instructor to advance to Phase D
+  room.pendingNext = () => startPhaseD(room);
+  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'phaseD' });
 }
 
 function startPhaseD(room) {
@@ -797,8 +805,9 @@ function resolvePhaseD(room) {
   };
   room.history.push(roundData);
 
-  // Show round results then check end conditions
-  setTimeout(() => showRoundResults(room), 3000);
+  // Wait for instructor to show round results
+  room.pendingNext = () => showRoundResults(room);
+  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'roundResults' });
 }
 
 function showRoundResults(room) {
@@ -822,9 +831,11 @@ function showRoundResults(room) {
     (isPoolEmpty(room) && room.round > 0);
 
   if (shouldEnd) {
-    setTimeout(() => endGame(room), 8000);
+    room.pendingNext = () => endGame(room);
+    broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'gameOver' });
   } else {
-    setTimeout(() => startRound(room), 8000);
+    room.pendingNext = () => startRound(room);
+    broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'nextRound' });
   }
 }
 
@@ -1105,6 +1116,16 @@ io.on('connection', (socket) => {
   });
 
   // ─── Instructor Controls ────────────────────────────────────────────
+
+  socket.on('instructor:nextPhase', () => {
+    if (!currentRoom || !isInstructor) return;
+    const room = currentRoom;
+    if (room.pendingNext) {
+      const next = room.pendingNext;
+      room.pendingNext = null;
+      next();
+    }
+  });
 
   socket.on('instructor:pause', () => {
     if (!currentRoom || !isInstructor) return;

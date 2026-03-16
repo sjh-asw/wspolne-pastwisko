@@ -81,6 +81,8 @@ socket.on('timer:start', ({ duration, endsAt }) => {
 // ─── Game State ───────────────────────────────────────────────────────────
 socket.on('game:state', (s) => {
   state = s;
+  // Hide "Dalej" button when a new active phase starts
+  document.getElementById('next-phase-btn').classList.add('hidden');
   if (s.phase === 'lobby' || s.phase === 'betweenGames') {
     showScreen('dash-lobby');
     if (s.gameNumber === 2) {
@@ -575,4 +577,25 @@ document.querySelectorAll('.timer-btn').forEach(btn => {
 
 document.getElementById('ctrl-toggle-anon').addEventListener('click', () => {
   socket.emit('instructor:togglePunishmentAnonymity');
+});
+
+// ─── Next Phase Button ────────────────────────────────────────────────────
+const nextPhaseBtn = document.getElementById('next-phase-btn');
+
+nextPhaseBtn.addEventListener('click', () => {
+  socket.emit('instructor:nextPhase');
+  nextPhaseBtn.classList.add('hidden');
+});
+
+socket.on('phase:waitingForNext', ({ nextPhase }) => {
+  const labels = {
+    phaseB: '▶ Dalej — Sprawdzenie pastwiska',
+    phaseC: '▶ Dalej — Danina',
+    phaseD: '▶ Dalej — Porachunki',
+    roundResults: '▶ Dalej — Wyniki rundy',
+    nextRound: '▶ Dalej — Następna runda',
+    gameOver: '▶ Dalej — Zakończ grę'
+  };
+  nextPhaseBtn.textContent = labels[nextPhase] || '▶ Dalej';
+  nextPhaseBtn.classList.remove('hidden');
 });

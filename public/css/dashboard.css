@@ -258,6 +258,32 @@ body {
   padding: 0.3rem 0;
 }
 
+/* ─── Next Phase Button ────────────────────────────────────────────────── */
+.next-phase-btn {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  padding: 1rem 3rem;
+  font-size: 1.5rem;
+  font-weight: 900;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(76,175,80,0.4);
+  transition: transform 0.12s;
+  animation: pulse 1.5s infinite;
+}
+.next-phase-btn:hover {
+  transform: translateX(-50%) scale(1.05);
+}
+.next-phase-btn:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
 /* ─── Controls Panel ───────────────────────────────────────────────────── */
 .controls-toggle {
   position: fixed;
