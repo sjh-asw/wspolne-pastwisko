@@ -978,7 +978,7 @@ io.on('connection', (socket) => {
 
     if (callback) callback({ success: true });
 
-    broadcastDashboard(room, 'player:joined', {
+    broadcastToRoom(room, 'player:joined', {
       name: player.name,
       playerCount: getPlayerCount(room),
       players: Object.values(room.players).filter(p => !p.isSpectator).map(p => p.name)
