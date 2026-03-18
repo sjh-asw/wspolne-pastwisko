@@ -17,7 +17,7 @@
     .landing {
       text-align: center;
       padding: 2rem;
-      max-width: 420px;
+      max-width: 480px;
       width: 100%;
     }
     .landing h1 {
@@ -28,7 +28,7 @@
     .landing .subtitle {
       font-size: 1rem;
       color: #aaa;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
     }
     .landing .emoji-row {
       font-size: 2.5rem;
@@ -38,7 +38,7 @@
     .landing a {
       display: block;
       padding: 1.2rem 2rem;
-      margin: 1rem 0;
+      margin: 0.8rem 0;
       border-radius: 12px;
       text-decoration: none;
       font-size: 1.2rem;
@@ -58,6 +58,37 @@
       color: #fff;
       box-shadow: 0 4px 12px rgba(121,85,72,0.3);
     }
+    .instructions {
+      margin-top: 2.5rem;
+      text-align: left;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+    .instructions h3 {
+      color: var(--yellow);
+      margin-bottom: 0.8rem;
+      text-align: center;
+      font-size: 1rem;
+    }
+    .instructions ol {
+      padding-left: 1.2rem;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    .instructions li { margin-bottom: 0.4rem; }
+    .instructions strong { color: var(--text-light); }
+    .instructions .note {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: rgba(76,175,80,0.1);
+      border: 1px solid rgba(76,175,80,0.2);
+      border-radius: 10px;
+      font-size: 0.85rem;
+      color: var(--green);
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -65,8 +96,24 @@
     <div class="emoji-row">🐇 🐑 🐷 🐄</div>
     <h1>Wspólne Pastwisko</h1>
     <p class="subtitle">Gra o tragedii wspólnego pastwiska</p>
-    <a href="/play.html" class="btn-play">Dołącz do gry</a>
+    <p style="font-size:0.8rem;color:#777;margin-bottom:2rem;">Na podstawie gry planszowej stworzonej przez Jarosława Flisa</p>
+    <a href="/play.html" class="btn-play">Dołącz do gry (student)</a>
     <a href="/dashboard.html" class="btn-dashboard">Panel prowadzącego</a>
+
+    <div class="instructions">
+      <h3>Jak zacząć grę?</h3>
+      <ol>
+        <li>Otwórz <strong>Panel prowadzącego</strong> na swoim komputerze</li>
+        <li>Na ekranie pojawi się <strong>kod pokoju</strong> i <strong>QR kod</strong></li>
+        <li>Wyświetl dashboard na projektorze lub udostępnij ekran</li>
+        <li>Studenci skanują QR kod telefonem lub wpisują adres</li>
+        <li>Studenci wpisują kod pokoju i swoją nazwę</li>
+        <li>Gdy wszyscy dołączą, naciśnij <strong>Rozpocznij</strong></li>
+      </ol>
+      <div class="note">
+        Wszyscy muszą być podłączeni do <strong>tej samej sieci WiFi</strong>
+      </div>
+    </div>
   </div>
 </body>
 </html>

@@ -18,6 +18,13 @@ let phaseASelections = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
 let timerInterval = null;
 let pendingSubmit = null; // { event, data } — retry on reconnect
 
+// HTML escape to prevent XSS from player names
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // Polish grammar helper for "jednostka"
 function jednostki(n) {
   if (n === 1) return 'jednostka';
@@ -456,7 +463,7 @@ function showPhaseD() {
     item.className = 'player-list-item';
     item.dataset.id = p.id;
     item.innerHTML = `
-      <span class="player-name">${p.name}</span>
+      <span class="player-name">${escapeHtml(p.name)}</span>
       <span class="player-herd-val">wartość: ${p.herdValue}</span>
     `;
     item.addEventListener('click', () => {
@@ -497,20 +504,43 @@ socket.on('game:state', (s) => {
   updateTopBar();
   updatePastureInfo();
 
-  // Clear pending submit if server already has our submission
+  // Clear pending submit if server already has our submission — and fix UI
   if (pendingSubmit && s.hasSubmitted) {
     const phase = pendingSubmit.event.split(':')[0];
     if (s.hasSubmitted[phase]) {
       pendingSubmit = null;
+      // Force submitted UI in case the reliableEmit ack was lost
+      if (phase === 'phaseA') {
+        document.getElementById('phaseA-form').classList.add('hidden');
+        document.getElementById('phaseA-submitted').classList.remove('hidden');
+      } else if (phase === 'phaseC') {
+        document.getElementById('phaseC-form').classList.add('hidden');
+        document.getElementById('phaseC-exempt').classList.add('hidden');
+        document.getElementById('phaseC-submitted').classList.remove('hidden');
+      } else if (phase === 'phaseD') {
+        document.getElementById('phaseD-form').classList.add('hidden');
+        document.getElementById('phaseD-exempt').classList.add('hidden');
+        document.getElementById('phaseD-submitted').classList.remove('hidden');
+      }
     }
   }
 
   if (s.phase === 'phaseA') showPhaseA();
   else if (s.phase === 'phaseB') showPhaseWaiting('Sprawdzanie pastwiska...');
+  else if (s.phase === 'waiting_for_instructor') showPhaseWaiting('Oczekiwanie na prowadzącego...');
   else if (s.phase === 'phaseC') showPhaseC();
   else if (s.phase === 'phaseD') showPhaseD();
   else if (s.phase === 'roundResults') showRoundResults();
-  else if (s.phase === 'gameOver' || s.phase === 'betweenGames') { /* handled by game:over */ }
+  else if (s.phase === 'gameOver' || s.phase === 'betweenGames') {
+    // Show a waiting screen if game:over event hasn't arrived yet
+    showScreen('gameover-screen');
+    document.getElementById('gameover-score').textContent = calcHerdValue(s.herd) + ' pkt';
+    document.getElementById('gameover-rank').textContent = 'Oczekiwanie na wyniki...';
+    document.getElementById('gameover-scoreboard').innerHTML = '';
+    if (s.phase === 'betweenGames') {
+      document.getElementById('gameover-waiting-game2').classList.remove('hidden');
+    }
+  }
 });
 
 socket.on('game:started', () => {
@@ -600,11 +630,15 @@ socket.on('phaseD:result', (data) => {
 
   let html = '';
   if (data.wasTarget && data.punishedBy > 0) {
-    const names = (data.punisherNames || []).join(', ');
+    const names = (data.punisherNames || []).map(n => escapeHtml(n)).join(', ');
     html += `<div class="punishment-result was-punished">
       <p>⚡ Ukarał${data.punishedBy === 1 ? '' : 'o'} cię <strong>${data.punishedBy}</strong> ${data.punishedBy === 1 ? 'gracz' : 'graczy'}:</p>
       <p class="punisher-names">${names}</p>
-      <p>Straciłeś: ${data.lostFromPunishment.map(t => ANIMALS[t].emoji + ' ' + ANIMALS[t].name).join(', ')}</p>
+      <p>Straciłeś: ${(() => {
+        const counts = {};
+        for (const t of data.lostFromPunishment) counts[t] = (counts[t] || 0) + 1;
+        return Object.entries(counts).map(([t, c]) => ANIMALS[t].emoji + ' ' + ANIMALS[t].name + (c > 1 ? ' \u00d7' + c : '')).join(', ');
+      })()}</p>
     </div>`;
   } else {
     html += `<div class="punishment-result safe"><p>✅ Nikt cię nie ukarał.</p></div>`;
@@ -612,7 +646,7 @@ socket.on('phaseD:result', (data) => {
 
   if (data.punished) {
     html += `<div class="punishment-result gave-punishment">
-      <p>🔨 Ukarałeś: <strong>${data.punished}</strong></p>
+      <p>🔨 Ukarałeś: <strong>${escapeHtml(data.punished)}</strong></p>
       ${data.lost ? `<p>Koszt kary: ${ANIMALS[data.lost].emoji} ${ANIMALS[data.lost].name}</p>` : ''}
     </div>`;
   } else {
@@ -654,7 +688,7 @@ socket.on('game:over', (data) => {
     item.className = 'scoreboard-item' + (s.name === myName ? ' you' : '');
     item.innerHTML = `
       <span class="rank">#${s.rank}</span>
-      <span class="name">${s.name}</span>
+      <span class="name">${escapeHtml(s.name)}</span>
       <span class="score">${s.score} pkt</span>
     `;
     sb.appendChild(item);
@@ -678,11 +712,26 @@ socket.on('game:reset', (data) => {
 });
 
 socket.on('game:paused', () => {
-  // Could show a pause overlay
+  clearInterval(timerInterval);
+  const timerEl = document.getElementById('timer');
+  timerEl.textContent = '⏸';
+  timerEl.classList.remove('warning', 'danger');
+
+  // Show pause overlay
+  let overlay = document.getElementById('pause-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'pause-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:150;';
+    overlay.innerHTML = '<div style="text-align:center;color:#fff;font-size:1.5rem;font-weight:700;"><div style="font-size:3rem;margin-bottom:0.5rem;">⏸</div>Gra wstrzymana</div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
 });
 
 socket.on('game:resumed', () => {
-  // Could hide pause overlay
+  const overlay = document.getElementById('pause-overlay');
+  if (overlay) overlay.style.display = 'none';
 });
 
 socket.on('kicked', () => {
@@ -697,7 +746,10 @@ function updateTopBar() {
   const pastureEl = document.getElementById('topbar-pasture');
   const herdValEl = document.getElementById('topbar-herd-value');
 
-  if (roundEl) roundEl.textContent = `Runda ${state.round || 0} z 5`;
+  if (roundEl) {
+    const mr = state.maxRounds;
+    roundEl.textContent = mr > 0 ? `Runda ${state.round || 0} z ${mr}` : `Runda ${state.round || 0}`;
+  }
 
   const phaseNames = {
     phaseA: 'Faza A: Dobranie zwierząt',

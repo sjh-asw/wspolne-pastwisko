@@ -1,5 +1,17 @@
 /* ─── Instructor Dashboard ─────────────────────────────────────────────── */
-const socket = io();
+const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 20 });
+let firstConnect = true;
+
+socket.on('connect', () => {
+  if (!firstConnect && roomCode && dashboardToken) {
+    // Reconnect after socket drop — rejoin existing room
+    socket.emit('dashboard:join', { code: roomCode, token: dashboardToken }, (res) => {
+      if (res && res.success) return;
+      // Room gone — nothing we can do
+    });
+  }
+  firstConnect = false;
+});
 
 const ANIMALS = {
   rabbit: { name: 'Królik', emoji: '🐇', value: 1 },
@@ -9,8 +21,16 @@ const ANIMALS = {
 };
 const ANIMAL_TYPES = ['rabbit', 'sheep', 'pig', 'cow'];
 
+// HTML escape to prevent XSS from player names
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 let state = {};
 let roomCode = null;
+let dashboardToken = null;
 let pastureChart = null;
 let timerInterval = null;
 let controlsVisible = false;
@@ -25,13 +45,83 @@ function showScreen(id) {
     id === 'dash-lobby' || id === 'dash-comparison');
 }
 
-// ─── Create Room on Load ──────────────────────────────────────────────────
-socket.emit('room:create', (res) => {
-  roomCode = res.code;
-  document.getElementById('room-code').textContent = res.code;
-  document.getElementById('room-url').textContent = `Wejdź na: ${window.location.origin}`;
-  showScreen('dash-lobby');
-});
+// ─── QR Code + LAN URL ───────────────────────────────────────────────────
+function updateLobbyUrl(code) {
+  // Fetch LAN IP from server for proper network URL
+  fetch('/api/network-info')
+    .then(r => r.json())
+    .then(info => {
+      const playUrl = `${info.url}/play.html`;
+      document.getElementById('room-url').textContent = `Wejdź na: ${playUrl}`;
+      generateQR(playUrl);
+    })
+    .catch(() => {
+      // Fallback to window.location if fetch fails
+      const playUrl = `${window.location.origin}/play.html`;
+      document.getElementById('room-url').textContent = `Wejdź na: ${playUrl}`;
+      generateQR(playUrl);
+    });
+}
+
+let qrInstance = null;
+function generateQR(url) {
+  const container = document.getElementById('qr-container');
+  if (!container || typeof QRCode === 'undefined') return;
+  // Clear previous QR
+  container.innerHTML = '';
+  qrInstance = new QRCode(container, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#795548',
+    colorLight: '#FFF8E1',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+// ─── Create or Rejoin Room on Load ───────────────────────────────────────
+function initRoom() {
+  // Try to rejoin existing room from localStorage (page refresh recovery)
+  try {
+    const saved = JSON.parse(localStorage.getItem('pastwisko_dashboard'));
+    if (saved && saved.code && saved.token) {
+      socket.emit('dashboard:join', { code: saved.code, token: saved.token }, (res) => {
+        if (res && res.success) {
+          roomCode = saved.code;
+          dashboardToken = saved.token;
+          document.getElementById('room-code').textContent = saved.code;
+          updateLobbyUrl(saved.code);
+          // State will arrive via game:state event
+          return;
+        }
+        // Room no longer exists or token invalid — create new
+        localStorage.removeItem('pastwisko_dashboard');
+        createNewRoom();
+      });
+      return;
+    }
+  } catch(e) {}
+  createNewRoom();
+}
+
+function createNewRoom() {
+  socket.emit('room:create', (res) => {
+    if (res && res.error) {
+      document.getElementById('room-code').textContent = '---';
+      document.getElementById('room-url').textContent = res.error;
+      showScreen('dash-lobby');
+      return;
+    }
+    roomCode = res.code;
+    dashboardToken = res.token;
+    try { localStorage.setItem('pastwisko_dashboard', JSON.stringify({ code: res.code, token: res.token })); } catch(e) {}
+    document.getElementById('room-code').textContent = res.code;
+    updateLobbyUrl(res.code);
+    showScreen('dash-lobby');
+  });
+}
+
+initRoom();
 
 // ─── Lobby ────────────────────────────────────────────────────────────────
 const playerListEl = document.getElementById('lobby-player-list');
@@ -58,6 +148,24 @@ socket.on('player:reconnected', ({ name, playerCount }) => {
   playerCountEl.textContent = playerCount;
 });
 
+// ─── Round count selector ────────────────────────────────────────────────
+document.querySelectorAll('.round-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.round-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const rounds = parseInt(btn.dataset.rounds);
+    socket.emit('instructor:setRounds', { maxRounds: rounds });
+    const hint = document.getElementById('round-config-hint');
+    if (hint) {
+      if (rounds === 0) {
+        hint.textContent = 'Gra bez limitu rund — kończy się po 3 klęskach głodu';
+      } else {
+        hint.textContent = `Gra kończy się po ${rounds} rundach lub 2 klęskach głodu`;
+      }
+    }
+  });
+});
+
 startBtn.addEventListener('click', () => {
   socket.emit('game:start');
 });
@@ -76,6 +184,17 @@ socket.on('timer:start', ({ duration, endsAt }) => {
   }
   update();
   timerInterval = setInterval(update, 200);
+});
+
+socket.on('game:paused', () => {
+  clearInterval(timerInterval);
+  const timerEl = document.getElementById('dash-timer');
+  timerEl.textContent = '⏸';
+  timerEl.classList.remove('warning', 'danger');
+});
+
+socket.on('game:resumed', () => {
+  // Timer will restart via timer:start event from server
 });
 
 // ─── Game State ───────────────────────────────────────────────────────────
@@ -110,8 +229,9 @@ function updateDashboard() {
     roundResults: 'Wyniki rundy',
     gameOver: 'Gra zakończona'
   };
+  const roundLabel = state.maxRounds > 0 ? `Runda ${state.round} z ${state.maxRounds}` : `Runda ${state.round} (∞)`;
   document.getElementById('dash-round-phase').textContent =
-    `Runda ${state.round} z 5 — ${phaseNames[state.phase] || ''}`;
+    `${roundLabel} — ${phaseNames[state.phase] || ''}`;
 
   // Pasture meter
   updatePastureMeter();
@@ -145,19 +265,30 @@ function updatePastureMeter() {
 
 function updateRoundCounter() {
   const round = state.round || 0;
-  const maxRounds = 5;
-  document.getElementById('round-label').textContent = `Runda: ${round}/${maxRounds}`;
-  let dots = '';
-  for (let i = 1; i <= maxRounds; i++) {
-    dots += i <= round ? '🟩' : '⬜';
+  const maxRounds = state.maxRounds != null ? state.maxRounds : 5;
+  if (maxRounds > 0) {
+    document.getElementById('round-label').textContent = `Runda: ${round}/${maxRounds}`;
+    let dots = '';
+    const showDots = Math.min(maxRounds, 15); // cap visual dots at 15
+    for (let i = 1; i <= showDots; i++) {
+      dots += i <= round ? '🟩' : '⬜';
+    }
+    if (maxRounds > 15) dots += '…';
+    document.getElementById('round-dots').textContent = dots;
+  } else {
+    document.getElementById('round-label').textContent = `Runda: ${round} (∞)`;
+    document.getElementById('round-dots').textContent = '🟩'.repeat(Math.min(round, 20));
   }
-  document.getElementById('round-dots').textContent = dots;
 }
 
 function updateFamineCounter() {
   const count = state.famineCount || 0;
-  document.getElementById('famine-label').textContent = `Klęski głodu: ${count}/2`;
-  const skulls = count >= 2 ? '☠️☠️' : count === 1 ? '☠️🦴' : '🦴🦴';
+  const maxFamines = state.maxFamines || 2;
+  document.getElementById('famine-label').textContent = `Klęski głodu: ${count}/${maxFamines}`;
+  let skulls = '';
+  for (let i = 0; i < maxFamines; i++) {
+    skulls += i < count ? '☠️' : '🦴';
+  }
   document.getElementById('famine-skulls').textContent = skulls;
 }
 
@@ -207,7 +338,7 @@ function createLeaderboardItem(rank, p) {
 
   item.innerHTML = `
     <span class="rank">#${rank}</span>
-    <span class="name">${p.name}</span>
+    <span class="name">${escapeHtml(p.name)}</span>
     <span class="herd-icons">${icons}</span>
     <span class="value">${p.herdValue}</span>
   `;
@@ -292,7 +423,7 @@ socket.on('phaseA:resolved', (data) => {
   for (const e of entries.slice(0, 10)) {
     const w = (e.acquiredValue / maxVal * 100);
     html += `<div class="bar-row">
-      <span class="bar-label">${e.name}</span>
+      <span class="bar-label">${escapeHtml(e.name)}</span>
       <div class="bar" style="width:${w}%"></div>
       <span class="bar-value">${e.acquiredValue}</span>
     </div>`;
@@ -339,7 +470,7 @@ socket.on('phaseD:resolved', (data) => {
     for (const [sid, r] of Object.entries(data.punishmentResults)) {
       if (r.wasTarget && r.punishedBy > 0) {
         const name = state.players?.[sid]?.name || '???';
-        targets[sid] = { name: data.punishmentAnonymous ? `Gracz ${Object.keys(targets).length + 1}` : name, count: r.punishedBy };
+        targets[sid] = { name: data.punishmentAnonymous ? `Gracz ${Object.keys(targets).length + 1}` : escapeHtml(name), count: r.punishedBy };
       }
     }
     const targetList = Object.values(targets).sort((a, b) => b.count - a.count);
@@ -430,6 +561,8 @@ socket.on('game:over', (data) => {
     // Final comparison of both games
     showScreen('dash-comparison');
     renderFinalComparison(data);
+    // Clear dashboard session — game is fully over
+    try { localStorage.removeItem('pastwisko_dashboard'); } catch(e) {}
   }
 });
 
@@ -463,7 +596,7 @@ function renderComparison(g1) {
     for (const t of ANIMAL_TYPES) {
       if (s.herd[t] > 0) icons += ANIMALS[t].emoji + s.herd[t] + ' ';
     }
-    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${icons} = ${s.score}</span></div>`;
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${escapeHtml(s.name)}</span><span class="value">${icons} = ${s.score}</span></div>`;
   }
 
   html += `</div>
@@ -526,11 +659,11 @@ function renderFinalComparison(g2) {
   // Combined scoreboard
   html += `<div class="comparison-card"><h3>Gra 1 — Top 10</h3>`;
   for (const s of (g1.scores || []).slice(0, 10)) {
-    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${s.score}</span></div>`;
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${escapeHtml(s.name)}</span><span class="value">${s.score}</span></div>`;
   }
   html += `</div><div class="comparison-card"><h3>Gra 2 — Top 10</h3>`;
   for (const s of (g2.scores || []).slice(0, 10)) {
-    html += `<div class="stat-row"><span class="label">#${s.rank} ${s.name}</span><span class="value">${s.score}</span></div>`;
+    html += `<div class="stat-row"><span class="label">#${s.rank} ${escapeHtml(s.name)}</span><span class="value">${s.score}</span></div>`;
   }
   html += `</div>`;
 
@@ -556,6 +689,15 @@ socket.on('game:reset', (data) => {
   showScreen('dash-lobby');
   document.getElementById('lobby-title').textContent = 'Gra 2 — Z komunikacją';
   startBtn.textContent = 'Rozpocznij Grę 2 — Z komunikacją';
+  // Hide round config in Game 2 (same settings as Game 1)
+  const roundConfig = document.getElementById('round-config');
+  if (roundConfig) roundConfig.style.display = 'none';
+  // Update timer button active state for Game 2
+  if (data.timerDuration) {
+    document.querySelectorAll('.timer-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.duration) === data.timerDuration);
+    });
+  }
 });
 
 // ─── Controls Panel ───────────────────────────────────────────────────────

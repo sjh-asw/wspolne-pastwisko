@@ -2,16 +2,42 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const crypto = require('crypto');
+const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || null; // Set to your domain in production, e.g. 'https://pastwisko.example.com'
 const io = new Server(server, {
-  cors: { origin: '*' },
+  cors: {
+    origin: ALLOWED_ORIGIN || true  // In production set ALLOWED_ORIGIN; default reflects request origin
+  },
   pingTimeout: 60000,
   pingInterval: 25000
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── LAN IP Detection ────────────────────────────────────────────────────────
+function getLanIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+const PORT = process.env.PORT || 3000;
+
+app.get('/api/network-info', (req, res) => {
+  const port = PORT;
+  const lanIP = getLanIP();
+  res.json({ lanIP, port, url: `http://${lanIP}:${port}` });
+});
 
 // ─── Game State ──────────────────────────────────────────────────────────────
 
@@ -23,8 +49,11 @@ const ANIMALS = {
 };
 
 const ANIMAL_TYPES = ['rabbit', 'sheep', 'pig', 'cow'];
-const MAX_ROUNDS = 5;
-const MAX_FAMINES = 2;
+const DEFAULT_MAX_ROUNDS = 5;
+const DEFAULT_MAX_FAMINES = 2;
+const INFINITY_MAX_FAMINES = 3; // for unlimited rounds mode
+const MAX_ROOMS = 50;
+const MAX_PLAYERS_PER_ROOM = 60;
 
 // All active rooms keyed by room code
 const rooms = {};
@@ -51,7 +80,9 @@ function createRoom() {
     pool: { rabbit: 0, sheep: 0, pig: 0, cow: 0 },
     famineCount: 0,
     totalFamineCount: 0,
-    timerDuration: 30,    // seconds per phase
+    maxRounds: DEFAULT_MAX_ROUNDS,
+    maxFamines: DEFAULT_MAX_FAMINES,
+    timerDuration: 300,   // seconds per phase (5 minutes)
     timerHandle: null,
     timerEnd: null,
     isPaused: false,
@@ -61,6 +92,7 @@ function createRoom() {
     phaseCSubmissions: {},
     phaseDSubmissions: {},
     dashboardSocket: null,
+    dashboardToken: crypto.randomBytes(16).toString('hex'),
     roundSummary: null,
     soundEnabled: false,
     punishmentAnonymous: true
@@ -69,10 +101,26 @@ function createRoom() {
   return room;
 }
 
+// ─── Name Sanitization ──────────────────────────────────────────────────────
+
+function sanitizeName(name) {
+  if (typeof name !== 'string') return null;
+  // Strip control characters and zero-width chars
+  let clean = name.replace(/[\x00-\x1F\x7F\u200B-\u200F\u2028-\u202F\uFEFF]/g, '').trim();
+  // Limit length
+  clean = clean.substring(0, 20);
+  if (clean.length === 0) return null;
+  return clean;
+}
+
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
 function getPlayerCount(room) {
   return Object.values(room.players).filter(p => !p.isSpectator).length;
+}
+
+function getConnectedPlayerCount(room) {
+  return Object.values(room.players).filter(p => !p.isSpectator && !p.disconnected).length;
 }
 
 function getActivePlayers(room) {
@@ -272,7 +320,7 @@ function getGameStateForDashboard(room) {
     };
   }
   return {
-    phase: room.phase,
+    phase: dashboardPhase(room),
     round: room.round,
     gameNumber: room.gameNumber,
     pastureCapacity: room.pastureCapacity,
@@ -283,6 +331,8 @@ function getGameStateForDashboard(room) {
     players,
     history: room.history,
     game1Results: room.game1Results,
+    maxRounds: room.maxRounds,
+    maxFamines: room.maxFamines,
     timerDuration: room.timerDuration,
     isPaused: room.isPaused,
     roundSummary: room.roundSummary,
@@ -294,6 +344,25 @@ function getGameStateForDashboard(room) {
       phaseD: Object.keys(room.phaseDSubmissions).length
     }
   };
+}
+
+// Map transitional server phases to client-friendly phase names (player view)
+function clientPhase(room) {
+  const p = room.phase;
+  if (p === 'phaseA_resolving') return 'phaseB';
+  if (p === 'phaseC_resolving') return 'waiting_for_instructor';
+  if (p === 'phaseD_resolving') return 'waiting_for_instructor';
+  if (p === 'phaseB' && room.pendingNext) return 'waiting_for_instructor';
+  return p;
+}
+
+// Map transitional phases for dashboard (keep them recognizable for display)
+function dashboardPhase(room) {
+  const p = room.phase;
+  if (p === 'phaseA_resolving') return 'phaseA';
+  if (p === 'phaseC_resolving') return 'phaseC';
+  if (p === 'phaseD_resolving') return 'phaseD';
+  return p;
 }
 
 function getGameStateForPlayer(room, player) {
@@ -309,8 +378,9 @@ function getGameStateForPlayer(room, player) {
   }
 
   return {
-    phase: room.phase,
+    phase: clientPhase(room),
     round: room.round,
+    maxRounds: room.maxRounds,
     gameNumber: room.gameNumber,
     pastureCapacity: room.pastureCapacity,
     totalHerdValue: totalHerdValue(room),
@@ -356,9 +426,9 @@ function startPhaseA(room) {
   room.phase = 'phaseA';
   room.phaseASubmissions = {};
 
-  // Auto-submit for eliminated players
+  // Auto-submit for eliminated or disconnected players
   for (const [sid, p] of Object.entries(room.players)) {
-    if (!p.isSpectator && p.eliminated) {
+    if (!p.isSpectator && (p.eliminated || p.disconnected)) {
       room.phaseASubmissions[sid] = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
     }
   }
@@ -368,7 +438,7 @@ function startPhaseA(room) {
   startTimer(room, room.timerDuration, () => {
     // Auto-submit for players who haven't submitted
     for (const [sid, p] of Object.entries(room.players)) {
-      if (!p.isSpectator && !p.eliminated && !room.phaseASubmissions[sid]) {
+      if (!p.isSpectator && !room.phaseASubmissions[sid]) {
         room.phaseASubmissions[sid] = { rabbit: 0, sheep: 0, pig: 0, cow: 0 };
       }
     }
@@ -377,6 +447,8 @@ function startPhaseA(room) {
 }
 
 function resolvePhaseA(room) {
+  if (room.phase !== 'phaseA') return; // Guard against double resolution
+  room.phase = 'phaseA_resolving';
   clearTimer(room);
 
   const submissions = room.phaseASubmissions;
@@ -584,8 +656,8 @@ function startPhaseB(room) {
     cullingPasses: passes
   });
 
-  // Check if game ends (2 famines)
-  if (room.famineCount >= MAX_FAMINES) {
+  // Check if game ends (max famines reached)
+  if (room.famineCount >= room.maxFamines) {
     room.pendingNext = () => endGame(room);
     broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'gameOver' });
     return;
@@ -602,10 +674,10 @@ function startPhaseC(room) {
 
   const activePlayers = getActivePlayers(room);
 
-  // Auto-submit for players with <= 1 animal (exempt) or eliminated
+  // Auto-submit for players with <= 1 animal, eliminated, or disconnected
   for (const [sid, p] of Object.entries(room.players)) {
     if (p.isSpectator) continue;
-    if (p.eliminated || herdCount(p.herd) <= 1) {
+    if (p.eliminated || p.disconnected || herdCount(p.herd) <= 1) {
       room.phaseCSubmissions[sid] = { type: null, exempt: true };
     }
   }
@@ -621,8 +693,7 @@ function startPhaseC(room) {
   startTimer(room, room.timerDuration, () => {
     // Auto-submit cheapest animal for non-submitters
     for (const [sid, p] of Object.entries(room.players)) {
-      if (!p.isSpectator && !p.eliminated && !room.phaseCSubmissions[sid]) {
-        // Return cheapest
+      if (!p.isSpectator && !room.phaseCSubmissions[sid]) {
         const cheapest = ANIMAL_TYPES.find(t => p.herd[t] > 0);
         room.phaseCSubmissions[sid] = { type: cheapest || null, exempt: !cheapest };
       }
@@ -632,6 +703,8 @@ function startPhaseC(room) {
 }
 
 function resolvePhaseC(room) {
+  if (room.phase !== 'phaseC') return; // Guard against double resolution
+  room.phase = 'phaseC_resolving';
   clearTimer(room);
 
   let totalTributeValue = 0;
@@ -685,10 +758,10 @@ function startPhaseD(room) {
   room.phase = 'phaseD';
   room.phaseDSubmissions = {};
 
-  // Auto-submit for eliminated players and those with <=1 animal
+  // Auto-submit for eliminated, disconnected, or those with <=1 animal
   for (const [sid, p] of Object.entries(room.players)) {
     if (p.isSpectator) continue;
-    if (p.eliminated || herdCount(p.herd) <= 1) {
+    if (p.eliminated || p.disconnected || herdCount(p.herd) <= 1) {
       room.phaseDSubmissions[sid] = { target: null, cannotPunish: true };
     }
   }
@@ -712,16 +785,29 @@ function startPhaseD(room) {
 }
 
 function resolvePhaseD(room) {
+  if (room.phase !== 'phaseD') return; // Guard against double resolution
+  room.phase = 'phaseD_resolving';
   clearTimer(room);
 
-  // Collect all punishments
+  // Collect all punishments — resolve target by name if socket ID is stale
   const punishments = {}; // targetSid -> [punisherSid, ...]
   const punishers = [];
 
+  // Build name->sid lookup for resolving stale IDs
+  const nameSidMap = {};
+  for (const [sid, p] of Object.entries(room.players)) {
+    if (!p.isSpectator) nameSidMap[p.name] = sid;
+  }
+
   for (const [sid, sub] of Object.entries(room.phaseDSubmissions)) {
-    if (sub.target && room.players[sub.target]) {
-      if (!punishments[sub.target]) punishments[sub.target] = [];
-      punishments[sub.target].push(sid);
+    let targetSid = sub.target;
+    if (targetSid && !room.players[targetSid] && sub.targetName) {
+      // Socket ID is stale — resolve by name
+      targetSid = nameSidMap[sub.targetName] || null;
+    }
+    if (targetSid && room.players[targetSid]) {
+      if (!punishments[targetSid]) punishments[targetSid] = [];
+      punishments[targetSid].push(sid);
       punishers.push(sid);
     }
   }
@@ -816,8 +902,9 @@ function resolvePhaseD(room) {
   };
   room.history.push(roundData);
 
-  // Show round results automatically
-  showRoundResults(room);
+  // Wait for instructor to advance to round results (so players can see punishment results)
+  room.pendingNext = () => showRoundResults(room);
+  broadcastDashboard(room, 'phase:waitingForNext', { nextPhase: 'roundResults' });
 }
 
 function showRoundResults(room) {
@@ -836,8 +923,9 @@ function showRoundResults(room) {
   sendGameState(room);
   broadcastToRoom(room, 'round:results', summary);
 
-  // Check end conditions
-  const shouldEnd = room.round >= MAX_ROUNDS || room.famineCount >= MAX_FAMINES ||
+  // Check end conditions (maxRounds=0 means unlimited)
+  const shouldEnd = (room.maxRounds > 0 && room.round >= room.maxRounds) ||
+    room.famineCount >= room.maxFamines ||
     (isPoolEmpty(room) && room.round > 0);
 
   if (shouldEnd) {
@@ -850,6 +938,7 @@ function showRoundResults(room) {
 }
 
 function endGame(room) {
+  if (room.phase === 'gameOver' || room.phase === 'betweenGames') return; // Guard against double invocation
   room.phase = 'gameOver';
   clearTimer(room);
 
@@ -919,14 +1008,15 @@ function endGame(room) {
 
 function resetForGame2(room) {
   room.gameNumber = 2;
-  room.timerDuration = 20; // Shorter timers for Game 2
+  // Keep current timer duration (instructor may have changed it)
   room.totalFamineCount = room.famineCount; // preserve for stats
   initGame(room);
   room.phase = 'lobby';
 
   broadcastToRoom(room, 'game:reset', {
     gameNumber: 2,
-    game1Results: room.game1Results
+    game1Results: room.game1Results,
+    timerDuration: room.timerDuration
   });
 
   sendGameState(room);
@@ -940,11 +1030,15 @@ io.on('connection', (socket) => {
 
   // Create room (instructor)
   socket.on('room:create', (callback) => {
+    if (Object.keys(rooms).length >= MAX_ROOMS) {
+      if (callback) callback({ error: 'Zbyt wiele aktywnych pokoi. Spróbuj później.' });
+      return;
+    }
     const room = createRoom();
     room.dashboardSocket = socket.id;
     currentRoom = room;
     isInstructor = true;
-    if (callback) callback({ code: room.code });
+    if (callback) callback({ code: room.code, token: room.dashboardToken });
   });
 
   // Join room (student)
@@ -955,15 +1049,21 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const cleanName = sanitizeName(name);
+    if (!cleanName) {
+      if (callback) callback({ error: 'Nazwa jest nieprawidłowa.' });
+      return;
+    }
+
     // Check if name is taken
-    const nameTaken = Object.values(room.players).some(p => p.name === name && !p.disconnected);
+    const nameTaken = Object.values(room.players).some(p => p.name === cleanName && !p.disconnected);
     if (nameTaken) {
       if (callback) callback({ error: 'Ta nazwa jest już zajęta.' });
       return;
     }
 
     // Check for reconnection
-    const reconnectEntry = Object.entries(room.players).find(([, p]) => p.name === name && p.disconnected);
+    const reconnectEntry = Object.entries(room.players).find(([, p]) => p.name === cleanName && p.disconnected);
     if (reconnectEntry) {
       const [oldSid, oldPlayer] = reconnectEntry;
       // Transfer player to new socket
@@ -1002,9 +1102,15 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Limit players per room
+    if (getPlayerCount(room) >= MAX_PLAYERS_PER_ROOM) {
+      if (callback) callback({ error: 'Pokój jest pełny.' });
+      return;
+    }
+
     const player = {
       socketId: socket.id,
-      name: name.substring(0, 20),
+      name: cleanName,
       herd: { rabbit: 2, sheep: 0, pig: 0, cow: 0 },
       eliminated: false,
       isSpectator: false,
@@ -1034,11 +1140,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Dashboard joins room
-  socket.on('dashboard:join', ({ code }, callback) => {
+  // Dashboard joins room (requires secret token)
+  socket.on('dashboard:join', ({ code, token }, callback) => {
     const room = rooms[code?.toUpperCase()];
     if (!room) {
       if (callback) callback({ error: 'Room not found' });
+      return;
+    }
+    if (!token || token !== room.dashboardToken) {
+      if (callback) callback({ error: 'Invalid dashboard token' });
       return;
     }
     room.dashboardSocket = socket.id;
@@ -1046,6 +1156,23 @@ io.on('connection', (socket) => {
     isInstructor = true;
     if (callback) callback({ success: true });
     io.to(socket.id).emit('game:state', getGameStateForDashboard(room));
+
+    // Re-send pending "Dalej" button state if applicable
+    if (room.pendingNext) {
+      let nextPhase = 'nextRound';
+      const p = room.phase;
+      if (p === 'phaseB' && room.famineCount >= room.maxFamines) nextPhase = 'gameOver';
+      else if (p === 'phaseB') nextPhase = 'phaseC';
+      else if (p === 'phaseC' || p === 'phaseC_resolving') nextPhase = 'phaseD';
+      else if (p === 'phaseD_resolving') nextPhase = 'roundResults';
+      else if (p === 'roundResults') {
+        const shouldEnd = (room.maxRounds > 0 && room.round >= room.maxRounds) ||
+          room.famineCount >= room.maxFamines ||
+          (isPoolEmpty(room) && room.round > 0);
+        nextPhase = shouldEnd ? 'gameOver' : 'nextRound';
+      }
+      io.to(socket.id).emit('phase:waitingForNext', { nextPhase });
+    }
   });
 
   // Start game
@@ -1065,7 +1192,7 @@ io.on('connection', (socket) => {
     const total = getPlayerCount(room);
     const pending = [];
     for (const [sid, p] of Object.entries(room.players)) {
-      if (!p.isSpectator && !submissions[sid]) {
+      if (!p.isSpectator && !p.disconnected && !submissions[sid]) {
         pending.push(p.name);
       }
     }
@@ -1145,7 +1272,13 @@ io.on('connection', (socket) => {
     if (herdCount(player.herd) <= 1) {
       room.phaseDSubmissions[socket.id] = { target: null, cannotPunish: true };
     } else {
-      room.phaseDSubmissions[socket.id] = { target: target || null };
+      // Store target name alongside socket ID for resilience against reconnects
+      let targetName = null;
+      if (target) {
+        const targetPlayer = room.players[target];
+        if (targetPlayer) targetName = targetPlayer.name;
+      }
+      room.phaseDSubmissions[socket.id] = { target: target || null, targetName };
     }
 
     if (callback) callback({ ok: true });
@@ -1237,20 +1370,48 @@ io.on('connection', (socket) => {
 
   socket.on('instructor:kickPlayer', ({ playerId }) => {
     if (!currentRoom || !isInstructor) return;
-    const player = currentRoom.players[playerId];
+    const room = currentRoom;
+    const player = room.players[playerId];
     if (player) {
       io.to(playerId).emit('kicked', {});
-      delete currentRoom.players[playerId];
-      broadcastDashboard(currentRoom, 'player:left', {
+
+      // Remove player's submissions (they no longer count)
+      delete room.phaseASubmissions[playerId];
+      delete room.phaseCSubmissions[playerId];
+      delete room.phaseDSubmissions[playerId];
+
+      delete room.players[playerId];
+
+      broadcastDashboard(room, 'player:left', {
         name: player.name,
-        playerCount: getPlayerCount(currentRoom)
+        playerCount: getPlayerCount(room)
       });
+
+      // Check if kick unblocks phase resolution
+      if (room.phase === 'phaseA' && Object.keys(room.phaseASubmissions).length >= getPlayerCount(room)) {
+        resolvePhaseA(room);
+      } else if (room.phase === 'phaseC' && Object.keys(room.phaseCSubmissions).length >= getPlayerCount(room)) {
+        resolvePhaseC(room);
+      } else if (room.phase === 'phaseD' && Object.keys(room.phaseDSubmissions).length >= getPlayerCount(room)) {
+        resolvePhaseD(room);
+      }
     }
+  });
+
+  socket.on('instructor:setRounds', ({ maxRounds }) => {
+    if (!currentRoom || !isInstructor) return;
+    const room = currentRoom;
+    // Only allow changing in lobby
+    if (room.phase !== 'lobby' && room.phase !== 'betweenGames') return;
+    const validOptions = [0, 5, 10, 15]; // 0 = unlimited
+    if (!validOptions.includes(maxRounds)) return;
+    room.maxRounds = maxRounds;
+    room.maxFamines = maxRounds === 0 ? INFINITY_MAX_FAMINES : DEFAULT_MAX_FAMINES;
   });
 
   socket.on('instructor:setTimer', ({ duration }) => {
     if (!currentRoom || !isInstructor) return;
-    currentRoom.timerDuration = Math.min(60, Math.max(15, duration));
+    currentRoom.timerDuration = Math.min(300, Math.max(15, duration));
     broadcastDashboard(currentRoom, 'timer:updated', { duration: currentRoom.timerDuration });
   });
 
@@ -1322,10 +1483,16 @@ setInterval(() => {
 
 // ─── Start Server ────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Wspólne Pastwisko server running on port ${PORT}`);
-  console.log(`Open http://localhost:${PORT} to start`);
+  const lanIP = getLanIP();
+  console.log('');
+  console.log('  🐇🐑🐷🐄  Wspólne Pastwisko  🐇🐑🐷🐄');
+  console.log('  ──────────────────────────────────────');
+  console.log(`  Panel prowadzącego:  http://localhost:${PORT}/dashboard.html`);
+  console.log(`  Studenci (ta sieć):  http://${lanIP}:${PORT}`);
+  console.log('  ──────────────────────────────────────');
+  console.log('  Ctrl+C aby zatrzymać serwer');
+  console.log('');
 });
 
 module.exports = { server, io, rooms, ANIMALS, ANIMAL_TYPES, herdValue, herdCount, giniCoefficient, addValueAsAnimals };

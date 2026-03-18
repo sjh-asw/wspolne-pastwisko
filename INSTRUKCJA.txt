@@ -1,0 +1,74 @@
+============================================================
+   WSPÓLNE PASTWISKO — Instrukcja uruchomienia
+============================================================
+
+WYMAGANIA:
+  - Komputer z systemem macOS lub Windows
+  - Przeglądarka (Chrome, Safari, Firefox, Edge)
+  - Wszyscy gracze podłączeni do tej samej sieci WiFi
+
+URUCHOMIENIE:
+  1. Rozpakuj archiwum ZIP
+  2. Kliknij dwukrotnie URUCHOM.command (Mac) lub URUCHOM.bat (Windows)
+  3. W terminalu pojawi się adres gry — otwórz go w przeglądarce
+  4. Wyświetl stronę na projektorze
+  5. Studenci skanują QR kod telefonem
+
+============================================================
+   WAŻNE — Komunikaty bezpieczeństwa systemu
+============================================================
+
+Przy pierwszym uruchomieniu system może pokazać kilka komunikatów.
+To normalne — gra uruchamia lokalny serwer sieciowy.
+
+--- macOS ---
+
+1) "nie można otworzyć, bo pochodzi od niezidentyfikowanego dewelopera"
+   → Kliknij prawym przyciskiem myszy na URUCHOM.command
+   → Wybierz "Otwórz"
+   → Kliknij "Otwórz" w dialogu
+   (Trzeba to zrobić tylko raz)
+
+2) "Czy chcesz zezwolić na połączenia przychodzące?"
+   → Kliknij "Zezwól"
+   (To pozwala studentom połączyć się z grą)
+
+--- Windows ---
+
+1) "System Windows ochronił ten komputer" (SmartScreen)
+   → Kliknij "Więcej informacji"
+   → Kliknij "Uruchom mimo to"
+
+2) "Zapora systemu Windows zablokowała niektóre funkcje"
+   → Zaznacz "Sieci prywatne"
+   → Kliknij "Zezwalaj na dostęp"
+
+============================================================
+   CO ROBI TA APLIKACJA?
+============================================================
+
+  - Uruchamia LOKALNY serwer gry na Twoim komputerze
+  - Działa WYŁĄCZNIE w Twojej sieci WiFi
+  - NIE wysyła żadnych danych do internetu
+  - NIE instaluje niczego na stałe
+  - NIE modyfikuje żadnych plików systemowych
+  - Aby zatrzymać: zamknij okno terminala lub naciśnij Ctrl+C
+
+============================================================
+   ROZWIĄZYWANIE PROBLEMÓW
+============================================================
+
+P: Studenci nie mogą się połączyć
+O: Upewnij się, że wszyscy są w tej samej sieci WiFi.
+   Sprawdź czy firewall pozwala na połączenia (patrz wyżej).
+
+P: Adres nie działa na telefonach
+O: Użyj adresu IP (np. http://192.168.1.5:3000),
+   NIE adresu localhost.
+
+P: Port 3000 jest zajęty
+O: Zamknij inne aplikacje lub uruchom z innym portem:
+   Mac:     PORT=3001 ./node-bin server.js
+   Windows: set PORT=3001 && node.exe server.js
+
+============================================================

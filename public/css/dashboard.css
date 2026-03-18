@@ -39,7 +39,7 @@ body {
 .dash-screen.active { display: block; }
 
 /* ─── Setup / Lobby ────────────────────────────────────────────────────── */
-#dash-lobby {
+#dash-lobby.active {
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -384,6 +384,27 @@ body {
   background: var(--brown);
   color: #fff;
   border-color: var(--brown);
+}
+
+.round-btn {
+  padding: 0.5rem 1.2rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.1rem;
+  min-width: 3rem;
+  transition: all 0.15s;
+}
+.round-btn.active {
+  background: var(--brown);
+  color: #fff;
+  border-color: var(--brown);
+}
+.round-btn:hover:not(.active) {
+  border-color: var(--brown);
+  color: var(--brown);
 }
 
 /* ─── Between Games / Game Over ────────────────────────────────────────── */
