@@ -45,22 +45,33 @@ function showScreen(id) {
     id === 'dash-lobby' || id === 'dash-comparison');
 }
 
-// ─── QR Code + LAN URL ───────────────────────────────────────────────────
+// ─── QR Code + URL ───────────────────────────────────────────────────────
 function updateLobbyUrl(code) {
-  // Fetch LAN IP from server for proper network URL
-  fetch('/api/network-info')
-    .then(r => r.json())
-    .then(info => {
-      const playUrl = `${info.url}/play.html`;
-      document.getElementById('room-url').textContent = `Wejdź na: ${playUrl}`;
-      generateQR(playUrl);
-    })
-    .catch(() => {
-      // Fallback to window.location if fetch fails
-      const playUrl = `${window.location.origin}/play.html`;
-      document.getElementById('room-url').textContent = `Wejdź na: ${playUrl}`;
-      generateQR(playUrl);
-    });
+  // On cloud (HTTPS or non-default port hidden): use window.location.origin
+  // On LAN (HTTP + localhost/IP): try /api/network-info for proper LAN IP
+  const origin = window.location.origin;
+  const isCloud = window.location.protocol === 'https:' || (!origin.includes('localhost') && !origin.match(/:\d+$/));
+
+  if (isCloud) {
+    // Cloud deployment — use the public URL directly
+    const playUrl = `${origin}/play.html`;
+    document.getElementById('room-url').textContent = `Wejdź na: ${origin}`;
+    generateQR(playUrl);
+  } else {
+    // Local/WiFi — fetch LAN IP from server
+    fetch('/api/network-info')
+      .then(r => r.json())
+      .then(info => {
+        const playUrl = `${info.url}/play.html`;
+        document.getElementById('room-url').textContent = `Wejdź na: ${playUrl}`;
+        generateQR(playUrl);
+      })
+      .catch(() => {
+        const playUrl = `${origin}/play.html`;
+        document.getElementById('room-url').textContent = `Wejdź na: ${origin}`;
+        generateQR(playUrl);
+      });
+  }
 }
 
 let qrInstance = null;
