@@ -1,5 +1,10 @@
 /* ─── Instructor Dashboard ─────────────────────────────────────────────── */
-const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 20 });
+const socket = io(window.location.origin, {
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 20,
+  transports: ['websocket', 'polling']
+});
 let firstConnect = true;
 
 socket.on('connect', () => {
@@ -47,10 +52,9 @@ function showScreen(id) {
 
 // ─── QR Code + URL ───────────────────────────────────────────────────────
 function updateLobbyUrl(code) {
-  // On cloud (HTTPS or non-default port hidden): use window.location.origin
-  // On LAN (HTTP + localhost/IP): try /api/network-info for proper LAN IP
+  // Cloud = HTTPS (Render, Heroku, etc.); LAN = HTTP (localhost/IP with port)
   const origin = window.location.origin;
-  const isCloud = window.location.protocol === 'https:' || (!origin.includes('localhost') && !origin.match(/:\d+$/));
+  const isCloud = window.location.protocol === 'https:';
 
   if (isCloud) {
     // Cloud deployment — use the public URL directly

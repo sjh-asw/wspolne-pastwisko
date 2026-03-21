@@ -1,5 +1,10 @@
 /* ─── Student Game View ────────────────────────────────────────────────── */
-const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 20 });
+const socket = io(window.location.origin, {
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 20,
+  transports: ['websocket', 'polling']
+});
 
 const ANIMALS = {
   rabbit: { name: 'Rabbit', emoji: '🐇', value: 1 },

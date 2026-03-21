@@ -44,7 +44,8 @@ const PORT = process.env.PORT || 3000;
 app.get('/api/network-info', (req, res) => {
   const port = PORT;
   const lanIP = getLanIP();
-  res.json({ lanIP, port, url: `http://${lanIP}:${port}` });
+  const protocol = req.protocol; // 'https' behind reverse proxy (trust proxy), 'http' locally
+  res.json({ lanIP, port, url: `${protocol}://${lanIP}:${port}` });
 });
 
 // ─── Game State ──────────────────────────────────────────────────────────────
