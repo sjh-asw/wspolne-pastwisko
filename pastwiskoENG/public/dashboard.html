@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Common Pasture — Instructor Panel</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="/vendor/chart.umd.min.js"></script>
+  <script src="/vendor/qrcode.min.js"></script>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div id="dash-top-bar" class="dash-top-bar hidden">
+    <span id="dash-game-label" class="game-label">Game 1: No Communication</span>
+    <span id="dash-round-phase" class="round-phase"></span>
+    <span id="dash-timer" class="timer">30s</span>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="dash-lobby" class="dash-screen active">
+    <h1 id="lobby-title" style="font-size:1.5rem;color:var(--brown);margin-bottom:0.5rem;">Common Pasture</h1>
+    <p style="color:var(--text-muted);margin-bottom:0.2rem;">A game about the Tragedy of the Commons</p>
+    <p style="font-size:0.75rem;color:#aaa;margin-bottom:0.5rem;">Based on the board game created by Jaroslaw Flis</p>
+    <p id="room-url" class="room-url"></p>
+    <div id="room-code" class="room-code-display"></div>
+    <div id="qr-container" style="margin:0.5rem auto;display:inline-block;"></div>
+    <div class="player-count-display">Connected players: <span id="lobby-player-count">0</span></div>
+    <div id="lobby-player-list" class="player-list-lobby"></div>
+    <div id="round-config" class="round-config" style="margin:1rem 0;">
+      <label style="font-weight:600;color:var(--brown);font-size:0.95rem;">Number of rounds:</label>
+      <div class="round-btns" style="display:flex;gap:0.5rem;justify-content:center;margin-top:0.4rem;">
+        <button class="round-btn active" data-rounds="5">5</button>
+        <button class="round-btn" data-rounds="10">10</button>
+        <button class="round-btn" data-rounds="15">15</button>
+        <button class="round-btn" data-rounds="0">∞</button>
+      </div>
+      <p id="round-config-hint" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem;">Game ends after 5 rounds or 2 famines</p>
+    </div>
+    <button id="start-game-btn" class="btn btn-primary" disabled>Start Game 1 — No Communication</button>
+  </div>
+
+  <!-- Game Dashboard -->
+  <div id="dash-game" class="dash-screen">
+    <div class="dash-game-layout">
+      <!-- Left Panel -->
+      <div class="dash-left">
+        <div class="pasture-meter">
+          <h2>Pasture</h2>
+          <div id="pasture-occupancy" class="occupancy">Occupancy: 0 / 0</div>
+          <div class="pasture-bar-large">
+            <div id="pasture-fill-large" class="fill green" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="status-counters">
+          <div class="round-counter">
+            <span id="round-label" class="label"></span>
+            <span id="round-dots" class="dots"></span>
+          </div>
+          <div class="famine-counter">
+            <span id="famine-label" class="label">Famines: 0/2</span>
+            <span id="famine-skulls" class="skulls">🦴🦴</span>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="pasture-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="dash-right">
+        <div class="phase-status" id="phase-status-content">
+          <!-- Dynamic content -->
+        </div>
+
+        <div class="leaderboard">
+          <h3>Leaderboard</h3>
+          <div id="leaderboard-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Screen -->
+  <div id="dash-comparison" class="dash-screen">
+    <div id="comparison-content" class="comparison-layout">
+      <!-- Dynamic content -->
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <!-- Next Phase button (big, visible on projector) -->
+  <button id="next-phase-btn" class="next-phase-btn hidden">▶ Next</button>
+
+  <button id="controls-toggle" class="controls-toggle">⚙</button>
+  <div id="controls-panel" class="controls-panel">
+    <h4>Instructor Controls</h4>
+    <button id="ctrl-pause" class="ctrl-btn warning">⏸ Pause</button>
+    <button id="ctrl-resume" class="ctrl-btn primary hidden">▶ Resume</button>
+    <button id="ctrl-skip" class="ctrl-btn secondary">⏭ Skip phase</button>
+    <button id="ctrl-end" class="ctrl-btn danger">⏹ End game</button>
+    <button id="ctrl-reset-game2" class="ctrl-btn primary">🔄 Reset — Game 2</button>
+    <button id="ctrl-toggle-anon" class="ctrl-btn secondary">👁 Show/hide names (punishments)</button>
+    <h4 style="margin-top:0.8rem;">Timer (seconds)</h4>
+    <div class="timer-controls">
+      <button class="timer-btn" data-duration="15">15s</button>
+      <button class="timer-btn" data-duration="30">30s</button>
+      <button class="timer-btn" data-duration="45">45s</button>
+      <button class="timer-btn" data-duration="60">60s</button>
+      <button class="timer-btn" data-duration="120">2m</button>
+      <button class="timer-btn active" data-duration="300">5m</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@ const app = express();
 // Trust reverse proxy (Render, Heroku, etc.) for correct protocol/IP detection
 app.set('trust proxy', 1);
 const server = http.createServer(app);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || null; // Set to your domain in production, e.g. 'https://pastwisko.example.com'
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || null; // Set to your domain in production, e.g. 'https://pasture.example.com'
 const io = new Server(server, {
   cors: {
     origin: ALLOWED_ORIGIN || true,  // In production set ALLOWED_ORIGIN; default reflects request origin
@@ -50,10 +50,10 @@ app.get('/api/network-info', (req, res) => {
 // ─── Game State ──────────────────────────────────────────────────────────────
 
 const ANIMALS = {
-  rabbit: { name: 'Królik', emoji: '🐇', value: 1 },
-  sheep:  { name: 'Owca',   emoji: '🐑', value: 2 },
-  pig:    { name: 'Świnia', emoji: '🐷', value: 4 },
-  cow:    { name: 'Krowa',  emoji: '🐄', value: 8 }
+  rabbit: { name: 'Rabbit', emoji: '🐇', value: 1 },
+  sheep:  { name: 'Sheep',  emoji: '🐑', value: 2 },
+  pig:    { name: 'Pig',    emoji: '🐷', value: 4 },
+  cow:    { name: 'Cow',    emoji: '🐄', value: 8 }
 };
 
 const ANIMAL_TYPES = ['rabbit', 'sheep', 'pig', 'cow'];
@@ -1039,7 +1039,7 @@ io.on('connection', (socket) => {
   // Create room (instructor)
   socket.on('room:create', (callback) => {
     if (Object.keys(rooms).length >= MAX_ROOMS) {
-      if (callback) callback({ error: 'Zbyt wiele aktywnych pokoi. Spróbuj później.' });
+      if (callback) callback({ error: 'Too many active rooms. Please try again later.' });
       return;
     }
     const room = createRoom();
@@ -1053,20 +1053,20 @@ io.on('connection', (socket) => {
   socket.on('room:join', ({ code, name }, callback) => {
     const room = rooms[code?.toUpperCase()];
     if (!room) {
-      if (callback) callback({ error: 'Nie znaleziono pokoju o tym kodzie.' });
+      if (callback) callback({ error: 'Room not found.' });
       return;
     }
 
     const cleanName = sanitizeName(name);
     if (!cleanName) {
-      if (callback) callback({ error: 'Nazwa jest nieprawidłowa.' });
+      if (callback) callback({ error: 'Invalid name.' });
       return;
     }
 
     // Check if name is taken
     const nameTaken = Object.values(room.players).some(p => p.name === cleanName && !p.disconnected);
     if (nameTaken) {
-      if (callback) callback({ error: 'Ta nazwa jest już zajęta.' });
+      if (callback) callback({ error: 'This name is already taken.' });
       return;
     }
 
@@ -1106,13 +1106,13 @@ io.on('connection', (socket) => {
 
     // Block new players from joining mid-game (only reconnects allowed)
     if (room.phase !== 'lobby' && room.phase !== 'betweenGames') {
-      if (callback) callback({ error: 'Gra jest w toku. Nie można dołączyć.' });
+      if (callback) callback({ error: 'Game is in progress. Cannot join.' });
       return;
     }
 
     // Limit players per room
     if (getPlayerCount(room) >= MAX_PLAYERS_PER_ROOM) {
-      if (callback) callback({ error: 'Pokój jest pełny.' });
+      if (callback) callback({ error: 'Room is full.' });
       return;
     }
 
@@ -1165,7 +1165,7 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true });
     io.to(socket.id).emit('game:state', getGameStateForDashboard(room));
 
-    // Re-send pending "Dalej" button state if applicable
+    // Re-send pending "Next" button state if applicable
     if (room.pendingNext) {
       let nextPhase = 'nextRound';
       const p = room.phase;
@@ -1494,12 +1494,12 @@ setInterval(() => {
 server.listen(PORT, () => {
   const lanIP = getLanIP();
   console.log('');
-  console.log('  🐇🐑🐷🐄  Wspólne Pastwisko  🐇🐑🐷🐄');
+  console.log('  🐇🐑🐷🐄  Common Pasture  🐇🐑🐷🐄');
   console.log('  ──────────────────────────────────────');
-  console.log(`  Panel prowadzącego:  http://localhost:${PORT}/dashboard.html`);
-  console.log(`  Studenci (ta sieć):  http://${lanIP}:${PORT}`);
+  console.log(`  Instructor panel:    http://localhost:${PORT}/dashboard.html`);
+  console.log(`  Students (this LAN): http://${lanIP}:${PORT}`);
   console.log('  ──────────────────────────────────────');
-  console.log('  Ctrl+C aby zatrzymać serwer');
+  console.log('  Ctrl+C to stop the server');
   console.log('');
 });
 

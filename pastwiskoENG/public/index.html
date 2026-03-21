@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Common Pasture</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--bg-dark);
+      color: var(--text-light);
+    }
+    .landing {
+      text-align: center;
+      padding: 2rem;
+      max-width: 480px;
+      width: 100%;
+    }
+    .landing h1 {
+      font-size: 2.4rem;
+      margin-bottom: 0.3rem;
+      color: var(--green);
+    }
+    .landing .subtitle {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 2rem;
+    }
+    .landing .emoji-row {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.3rem;
+    }
+    .landing a {
+      display: block;
+      padding: 1.2rem 2rem;
+      margin: 0.8rem 0;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .landing a:active {
+      transform: scale(0.97);
+    }
+    .btn-play {
+      background: var(--green);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+    }
+    .btn-dashboard {
+      background: var(--brown);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(121,85,72,0.3);
+    }
+    .instructions {
+      margin-top: 2.5rem;
+      text-align: left;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+    .instructions h3 {
+      color: var(--yellow);
+      margin-bottom: 0.8rem;
+      text-align: center;
+      font-size: 1rem;
+    }
+    .instructions ol {
+      padding-left: 1.2rem;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    .instructions li { margin-bottom: 0.4rem; }
+    .instructions strong { color: var(--text-light); }
+    .instructions .note {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: rgba(76,175,80,0.1);
+      border: 1px solid rgba(76,175,80,0.2);
+      border-radius: 10px;
+      font-size: 0.85rem;
+      color: var(--green);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="landing">
+    <div class="emoji-row">🐇 🐑 🐷 🐄</div>
+    <h1>Common Pasture</h1>
+    <p class="subtitle">A game about the Tragedy of the Commons</p>
+    <p style="font-size:0.8rem;color:#777;margin-bottom:2rem;">Based on the board game created by Jaroslaw Flis</p>
+    <a href="/play.html" class="btn-play">Join game (student)</a>
+    <a href="/dashboard.html" class="btn-dashboard">Instructor panel</a>
+
+    <div class="instructions">
+      <h3>How to start a game?</h3>
+      <ol>
+        <li>Open the <strong>Instructor panel</strong> on your computer</li>
+        <li>A <strong>room code</strong> and <strong>QR code</strong> will appear on screen</li>
+        <li>Display the dashboard on a projector or share your screen</li>
+        <li>Students scan the QR code with their phones or type the address</li>
+        <li>Students enter the room code and their name</li>
+        <li>When everyone has joined, press <strong>Start</strong></li>
+      </ol>
+      <div class="note">
+        Everyone must be connected to the <strong>same WiFi network</strong>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

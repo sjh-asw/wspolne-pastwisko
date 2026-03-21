@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Common Pasture — Game</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/play.css">
+</head>
+<body>
+  <!-- Top Bar -->
+  <div id="top-bar" class="top-bar hidden">
+    <span id="round-display" class="round-info"></span>
+    <span id="phase-display" class="phase-info"></span>
+    <span id="topbar-pasture">🌿 0</span>
+    <span id="topbar-herd-value">🐾 0</span>
+    <span id="timer" class="timer">30s</span>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="lobby-screen" class="screen active">
+    <h1>🐇🐑🐷🐄</h1>
+    <h1>Common Pasture</h1>
+    <p class="subtitle">A game about the Tragedy of the Commons</p>
+    <p style="font-size:0.7rem;color:#777;margin-bottom:1rem;">Based on the board game created by Jaroslaw Flis</p>
+
+    <div id="join-form">
+      <input type="text" id="room-code-input" placeholder="Room code" maxlength="4" autocomplete="off">
+      <input type="text" id="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
+      <button id="join-btn" class="btn btn-primary">Join</button>
+      <p id="lobby-error" class="lobby-error"></p>
+    </div>
+
+    <div id="waiting-area" class="hidden">
+      <p id="waiting-msg" class="waiting-msg">Waiting for the game to start...</p>
+      <div class="player-count-badge">Players: <span id="lobby-player-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- Phase A: Acquire Animals -->
+  <div id="phaseA-screen" class="screen">
+    <div class="phase-title">Phase A: Acquire Animals</div>
+    <div class="phase-desc">Choose animals from the pool</div>
+
+    <div class="pasture-info">
+      <span id="pasture-text">Pasture: 0 / 0</span>
+    </div>
+    <div class="pasture-bar"><div id="pasture-fill" class="pasture-bar-fill"></div></div>
+
+    <div class="herd-display">
+      <h3>Your herd</h3>
+      <div id="phaseA-herd" class="herd-animals"></div>
+      <div id="phaseA-herd-value" class="herd-value"></div>
+    </div>
+
+    <div id="phaseA-form">
+      <div id="budget-display" class="budget-display">Your limit: 2 units</div>
+      <div id="acquire-rows"></div>
+      <div id="selected-total" class="selected-total">Selected: 0 / 2 units</div>
+      <button id="phaseA-confirm" class="btn btn-primary submit-btn">Confirm</button>
+    </div>
+
+    <div id="phaseA-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Waiting for other players...</p>
+      <p id="phaseA-result-text" class="waiting-count"></p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Famine Screen -->
+  <div id="famine-screen" class="screen">
+    <div class="famine-icon">🔥</div>
+    <div class="famine-title">FAMINE!</div>
+    <div class="losses-list">
+      <h4>You lost:</h4>
+      <div id="famine-losses"></div>
+    </div>
+    <div class="herd-display">
+      <h3>Remaining:</h3>
+      <div id="famine-remaining-herd" class="herd-animals"></div>
+      <div id="famine-remaining-value" class="herd-value"></div>
+    </div>
+    <p id="famine-pasture" style="text-align:center;margin-top:1rem;color:var(--orange);"></p>
+    <div id="famine-eliminated" class="hidden" style="text-align:center;margin-top:1rem;color:var(--red);font-weight:700;">
+      All your animals have perished. You have been eliminated.
+    </div>
+  </div>
+
+  <!-- Phase C: Tribute -->
+  <div id="phaseC-screen" class="screen">
+    <div class="phase-title">Phase C: Tribute</div>
+    <div class="phase-desc">Give one animal back to the common pasture</div>
+
+    <div class="herd-display">
+      <h3>Your herd</h3>
+      <div id="phaseC-herd" class="herd-animals"></div>
+    </div>
+
+    <div id="phaseC-form">
+      <div id="tribute-animals" class="tribute-animals"></div>
+      <button id="phaseC-confirm" class="btn btn-primary submit-btn" disabled>Confirm tribute</button>
+    </div>
+
+    <div id="phaseC-exempt" class="hidden">
+      <p class="exempt-msg">You are exempt from tribute — you only have one animal.</p>
+    </div>
+
+    <div id="phaseC-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Waiting for other players...</p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Phase D: Punishment -->
+  <div id="phaseD-screen" class="screen">
+    <div class="phase-title">Phase D: Punishment</div>
+    <div class="phase-desc">Do you want to punish another player?</div>
+
+    <div class="punishment-info">
+      Punishment has a cost! Both you and the chosen player lose one animal each.
+    </div>
+
+    <div id="phaseD-form">
+      <div id="punishment-player-list" class="player-list"></div>
+      <div class="punishment-actions">
+        <button id="punish-btn" class="btn btn-danger" disabled>Punish: ...</button>
+        <button id="no-punish-btn" class="btn btn-outline">Punish nobody</button>
+      </div>
+    </div>
+
+    <div id="phaseD-exempt" class="hidden">
+      <p class="exempt-msg">You cannot punish — you only have one animal.</p>
+    </div>
+
+    <div id="phaseD-submitted" class="waiting-screen hidden">
+      <div class="spinner"></div>
+      <p>Waiting for other players...</p>
+      <p class="waiting-count"></p>
+    </div>
+  </div>
+
+  <!-- Phase D Results -->
+  <div id="phaseD-result-screen" class="screen">
+    <div class="phase-title">Punishment Results</div>
+    <div id="phaseD-result-content"></div>
+    <div class="herd-display" style="margin-top:1rem;">
+      <h3>Your herd</h3>
+      <div id="phaseD-result-herd" class="herd-animals"></div>
+      <div id="phaseD-result-value" class="herd-value"></div>
+    </div>
+  </div>
+
+  <!-- Round Results -->
+  <div id="round-results-screen" class="screen">
+    <div class="round-results-screen">
+      <h2 id="round-result-round">End of round</h2>
+      <div class="herd-display">
+        <h3>Your herd</h3>
+        <div id="round-result-herd" class="herd-animals"></div>
+        <div id="round-result-value" class="herd-value"></div>
+      </div>
+      <p id="round-result-pasture" style="margin-top:1rem;color:var(--green);font-weight:600;"></p>
+      <p style="margin-top:2rem;color:var(--text-muted);">Next round...</p>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameover-screen" class="screen">
+    <h1>Game Over!</h1>
+    <div class="final-score" id="gameover-score">0 pts</div>
+    <div class="final-rank" id="gameover-rank">Place — of —</div>
+
+    <h3 style="margin-bottom:0.5rem;">Scoreboard</h3>
+    <div id="gameover-scoreboard" class="scoreboard"></div>
+
+    <div id="gameover-waiting-game2" class="hidden" style="margin-top:2rem;text-align:center;color:var(--text-muted);">
+      <p>The instructor is preparing Game 2...</p>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/play.js"></script>
+</body>
+</html>

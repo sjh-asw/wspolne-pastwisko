@@ -1,0 +1,430 @@
+/* ─── Student View (Mobile-first) ──────────────────────────────────────── */
+body {
+  background: var(--bg-dark);
+  color: var(--text-light);
+  min-height: 100vh;
+  font-size: 18px;
+}
+
+/* ─── Top Bar ──────────────────────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.top-bar .round-info { font-weight: 700; color: var(--green); }
+.top-bar .phase-info { color: var(--text-muted); font-size: 0.8rem; }
+.top-bar .timer {
+  background: var(--brown);
+  color: #fff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 3rem;
+  text-align: center;
+}
+.top-bar .timer.warning { background: var(--orange); }
+.top-bar .timer.danger { background: var(--red); animation: pulse 0.8s infinite; }
+
+/* ─── Screens ──────────────────────────────────────────────────────────── */
+.screen {
+  display: none;
+  padding: 1.2rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.screen.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+/* ─── Lobby ────────────────────────────────────────────────────────────── */
+#lobby-screen.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  text-align: center;
+}
+#lobby-screen h1 { font-size: 1.8rem; margin-bottom: 0.3rem; color: var(--green); }
+#lobby-screen .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+#lobby-screen input {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.9rem 1rem;
+  margin: 0.4rem 0;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-light);
+  font-size: 1.1rem;
+  text-align: center;
+}
+#lobby-screen input::placeholder { color: var(--text-muted); }
+#room-code-input {
+  font-family: monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.3rem;
+  text-transform: uppercase;
+}
+#join-btn {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 1rem;
+  font-size: 1.2rem;
+  padding: 1rem;
+}
+.lobby-error {
+  color: var(--red);
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+}
+.waiting-msg {
+  margin-top: 2rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+.player-count-badge {
+  display: inline-block;
+  background: var(--green);
+  color: #fff;
+  padding: 0.2rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+/* ─── Herd Display ─────────────────────────────────────────────────────── */
+.herd-display {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.8rem 0;
+}
+.herd-display h3 {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  margin-bottom: 0.6rem;
+}
+.herd-animals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.herd-animals .animal-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255,255,255,0.05);
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+}
+.herd-animals .animal-emoji { font-size: 1.6rem; }
+.herd-animals .animal-count { font-weight: 700; font-size: 1.1rem; }
+.herd-value {
+  text-align: right;
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin-top: 0.5rem;
+  color: var(--green);
+}
+
+/* ─── Pasture Info ─────────────────────────────────────────────────────── */
+.pasture-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border-radius: 10px;
+  margin-bottom: 0.8rem;
+  font-size: 0.9rem;
+}
+.pasture-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.4rem;
+}
+.pasture-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.3s;
+}
+
+/* ─── Phase A: Acquire ─────────────────────────────────────────────────── */
+.phase-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+.phase-desc {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.budget-display {
+  text-align: center;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--yellow);
+  font-weight: 600;
+}
+.acquire-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem;
+  background: var(--bg-card);
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+}
+.acquire-row.disabled { opacity: 0.35; pointer-events: none; }
+.acquire-animal {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.acquire-animal .emoji { font-size: 2rem; }
+.acquire-animal .info { line-height: 1.2; }
+.acquire-animal .name { font-weight: 600; }
+.acquire-animal .cost { font-size: 0.8rem; color: var(--text-muted); }
+.acquire-animal .pool-count { font-size: 0.75rem; color: var(--text-muted); }
+.acquire-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.acquire-controls button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+.acquire-controls button:disabled { opacity: 0.3; }
+.acquire-controls .qty {
+  font-size: 1.4rem;
+  font-weight: 700;
+  min-width: 2rem;
+  text-align: center;
+}
+.selected-total {
+  text-align: center;
+  font-size: 1rem;
+  margin: 1rem 0;
+  padding: 0.6rem;
+  background: var(--bg-card);
+  border-radius: 8px;
+}
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+}
+
+/* ─── Famine Screen ────────────────────────────────────────────────────── */
+#famine-screen {
+  text-align: center;
+  padding-top: 3rem;
+}
+#famine-screen .famine-title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--red);
+  margin-bottom: 1rem;
+}
+#famine-screen .famine-icon { font-size: 3rem; margin-bottom: 1rem; }
+.losses-list {
+  background: rgba(244,67,54,0.15);
+  border: 1px solid rgba(244,67,54,0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: left;
+}
+.losses-list h4 { color: var(--red); margin-bottom: 0.5rem; }
+.losses-item { padding: 0.3rem 0; font-size: 1rem; }
+
+/* ─── Phase C: Tribute ─────────────────────────────────────────────────── */
+.tribute-animals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+.tribute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  color: var(--text-light);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  touch-action: manipulation;
+}
+.tribute-btn:hover, .tribute-btn.selected {
+  border-color: var(--green);
+}
+.tribute-btn .emoji { font-size: 2rem; }
+.tribute-btn .value { color: var(--text-muted); font-size: 0.9rem; }
+.exempt-msg {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+/* ─── Phase D: Punishment ──────────────────────────────────────────────── */
+.punishment-info {
+  background: rgba(255,152,0,0.1);
+  border: 1px solid rgba(255,152,0,0.2);
+  border-radius: 10px;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--orange);
+}
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.8rem 0;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.player-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  touch-action: manipulation;
+}
+.player-list-item:hover, .player-list-item.selected {
+  border-color: var(--red);
+}
+.player-list-item .player-name { font-weight: 600; }
+.player-list-item .player-herd-val { color: var(--text-muted); font-size: 0.9rem; }
+.punishment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.punishment-actions .btn { width: 100%; text-align: center; }
+
+/* ─── Waiting / Results ────────────────────────────────────────────────── */
+.waiting-screen {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+.waiting-screen .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 1rem auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.waiting-count {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.round-results-screen {
+  text-align: center;
+  padding-top: 2rem;
+}
+.round-results-screen h2 { color: var(--green); margin-bottom: 1rem; }
+
+/* ─── Game Over ────────────────────────────────────────────────────────── */
+#gameover-screen {
+  text-align: center;
+  padding-top: 3rem;
+}
+#gameover-screen h1 {
+  font-size: 2rem;
+  color: var(--green);
+  margin-bottom: 0.5rem;
+}
+.final-score {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--yellow);
+  margin: 1rem 0;
+}
+.final-rank {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+.scoreboard {
+  text-align: left;
+  max-width: 360px;
+  margin: 0 auto;
+}
+.scoreboard-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+.scoreboard-item.you { background: rgba(76,175,80,0.15); border-radius: 8px; }
+.scoreboard-item .rank { color: var(--text-muted); min-width: 2rem; }
+.scoreboard-item .score { font-weight: 700; color: var(--yellow); }
+
+/* ─── Phase D Results ──────────────────────────────────────────────────── */
+.punishment-result {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.8rem 0;
+  text-align: center;
+}
+.punishment-result.was-punished {
+  border: 1px solid rgba(244,67,54,0.3);
+  background: rgba(244,67,54,0.08);
+}
+.punishment-result.safe {
+  border: 1px solid rgba(76,175,80,0.3);
+  background: rgba(76,175,80,0.08);
+}
+.punishment-result.gave-punishment {
+  border: 1px solid rgba(255,152,0,0.3);
+  background: rgba(255,152,0,0.08);
+}
+.punisher-names {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--red);
+  margin: 0.3rem 0;
+}

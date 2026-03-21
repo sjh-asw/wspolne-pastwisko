@@ -1,0 +1,74 @@
+============================================================
+   COMMON PASTURE — Setup Instructions
+============================================================
+
+REQUIREMENTS:
+  - A computer running macOS or Windows
+  - A browser (Chrome, Safari, Firefox, Edge)
+  - All players connected to the same WiFi network
+
+GETTING STARTED:
+  1. Unzip the archive
+  2. Double-click START.command (Mac) or START.bat (Windows)
+  3. A game address will appear in the terminal — open it in your browser
+  4. Display the page on a projector
+  5. Students scan the QR code with their phones
+
+============================================================
+   IMPORTANT — System Security Messages
+============================================================
+
+When running for the first time, your system may show some warnings.
+This is normal — the game starts a local network server.
+
+--- macOS ---
+
+1) "cannot be opened because it is from an unidentified developer"
+   -> Right-click on START.command
+   -> Select "Open"
+   -> Click "Open" in the dialog
+   (You only need to do this once)
+
+2) "Do you want to allow incoming connections?"
+   -> Click "Allow"
+   (This lets students connect to the game)
+
+--- Windows ---
+
+1) "Windows protected your PC" (SmartScreen)
+   -> Click "More info"
+   -> Click "Run anyway"
+
+2) "Windows Firewall has blocked some features"
+   -> Check "Private networks"
+   -> Click "Allow access"
+
+============================================================
+   WHAT DOES THIS APPLICATION DO?
+============================================================
+
+  - Starts a LOCAL game server on your computer
+  - Works ONLY within your WiFi network
+  - Does NOT send any data to the internet
+  - Does NOT permanently install anything
+  - Does NOT modify any system files
+  - To stop: close the terminal window or press Ctrl+C
+
+============================================================
+   TROUBLESHOOTING
+============================================================
+
+Q: Students cannot connect
+A: Make sure everyone is on the same WiFi network.
+   Check that the firewall allows connections (see above).
+
+Q: The address doesn't work on phones
+A: Use the IP address (e.g. http://192.168.1.5:3000),
+   NOT the localhost address.
+
+Q: Port 3000 is busy
+A: Close other applications or start with a different port:
+   Mac:     PORT=3001 ./node-bin server.js
+   Windows: set PORT=3001 && node.exe server.js
+
+============================================================

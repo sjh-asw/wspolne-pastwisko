@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: common-pasture
+    runtime: node
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
