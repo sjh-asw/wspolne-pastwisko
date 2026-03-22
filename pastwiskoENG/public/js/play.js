@@ -745,6 +745,16 @@ socket.on('kicked', () => {
   window.location.href = '/';
 });
 
+socket.on('room:closed', () => {
+  try { localStorage.removeItem('pasture_session'); } catch(e) {}
+  joined = false;
+  myName = '';
+  state = {};
+  showScreen('lobby-screen');
+  document.getElementById('join-form').classList.remove('hidden');
+  document.getElementById('waiting-area').classList.add('hidden');
+});
+
 function updateTopBar() {
   const roundEl = document.getElementById('round-display');
   const phaseEl = document.getElementById('phase-display');

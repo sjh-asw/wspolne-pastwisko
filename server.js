@@ -1046,6 +1046,16 @@ io.on('connection', (socket) => {
       if (callback) callback({ error: 'Zbyt wiele aktywnych pokoi. Spróbuj później.' });
       return;
     }
+    // Close previous room if this instructor had one
+    if (currentRoom && isInstructor) {
+      const oldCode = currentRoom.code;
+      // Notify all players in the old room that it's closed
+      for (const pid of Object.keys(currentRoom.players)) {
+        io.to(pid).emit('room:closed');
+      }
+      clearTimer(currentRoom);
+      delete rooms[oldCode];
+    }
     const room = createRoom();
     room.dashboardSocket = socket.id;
     currentRoom = room;
