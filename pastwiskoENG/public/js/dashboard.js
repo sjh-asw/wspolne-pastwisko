@@ -8,14 +8,16 @@ const socket = io(window.location.origin, {
 let firstConnect = true;
 
 socket.on('connect', () => {
-  if (!firstConnect && roomCode && dashboardToken) {
+  if (firstConnect) {
+    firstConnect = false;
+    initRoom();
+  } else if (roomCode && dashboardToken) {
     // Reconnect after socket drop — rejoin existing room
     socket.emit('dashboard:join', { code: roomCode, token: dashboardToken }, (res) => {
       if (res && res.success) return;
       // Room gone — nothing we can do
     });
   }
-  firstConnect = false;
 });
 
 const ANIMALS = {
@@ -137,7 +139,7 @@ function createNewRoom() {
   });
 }
 
-initRoom();
+// initRoom() is called from the 'connect' handler above
 
 // ─── Lobby ────────────────────────────────────────────────────────────────
 const playerListEl = document.getElementById('lobby-player-list');

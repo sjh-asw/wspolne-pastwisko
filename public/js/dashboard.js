@@ -8,14 +8,16 @@ const socket = io(window.location.origin, {
 let firstConnect = true;
 
 socket.on('connect', () => {
-  if (!firstConnect && roomCode && dashboardToken) {
+  if (firstConnect) {
+    firstConnect = false;
+    initRoom();
+  } else if (roomCode && dashboardToken) {
     // Reconnect after socket drop — rejoin existing room
     socket.emit('dashboard:join', { code: roomCode, token: dashboardToken }, (res) => {
       if (res && res.success) return;
       // Room gone — nothing we can do
     });
   }
-  firstConnect = false;
 });
 
 const ANIMALS = {
@@ -136,7 +138,7 @@ function createNewRoom() {
   });
 }
 
-initRoom();
+// initRoom() is called from the 'connect' handler above
 
 // ─── Lobby ────────────────────────────────────────────────────────────────
 const playerListEl = document.getElementById('lobby-player-list');
@@ -759,6 +761,13 @@ document.querySelectorAll('.timer-btn').forEach(btn => {
 
 document.getElementById('ctrl-toggle-anon').addEventListener('click', () => {
   socket.emit('instructor:togglePunishmentAnonymity');
+});
+
+document.getElementById('ctrl-new-room').addEventListener('click', () => {
+  if (confirm('Czy na pewno chcesz stworzyć nowy pokój? Obecna gra zostanie zakończona, gracze będą musieli dołączyć ponownie.')) {
+    try { localStorage.removeItem('pastwisko_dashboard'); } catch(e) {}
+    location.reload();
+  }
 });
 
 // ─── Next Phase Button ────────────────────────────────────────────────────
