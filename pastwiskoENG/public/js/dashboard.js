@@ -99,7 +99,7 @@ function generateQR(url) {
 function initRoom() {
   // Try to rejoin existing room from localStorage (page refresh recovery)
   try {
-    const saved = JSON.parse(localStorage.getItem('pasture_dashboard'));
+    const saved = JSON.parse(localStorage.getItem('pastwisko_dashboard'));
     if (saved && saved.code && saved.token) {
       socket.emit('dashboard:join', { code: saved.code, token: saved.token }, (res) => {
         if (res && res.success) {
@@ -578,7 +578,7 @@ socket.on('game:over', (data) => {
     showScreen('dash-comparison');
     renderFinalComparison(data);
     // Clear dashboard session — game is fully over
-    try { localStorage.removeItem('pasture_dashboard'); } catch(e) {}
+    try { localStorage.removeItem('pastwisko_dashboard'); } catch(e) {}
   }
 });
 
@@ -760,6 +760,13 @@ document.querySelectorAll('.timer-btn').forEach(btn => {
 
 document.getElementById('ctrl-toggle-anon').addEventListener('click', () => {
   socket.emit('instructor:togglePunishmentAnonymity');
+});
+
+document.getElementById('ctrl-new-room').addEventListener('click', () => {
+  if (confirm('Create a new room? The current game will end and players will need to rejoin.')) {
+    try { localStorage.removeItem('pastwisko_dashboard'); } catch(e) {}
+    location.reload();
+  }
 });
 
 // ─── Next Phase Button ────────────────────────────────────────────────────
