@@ -94,6 +94,11 @@ socket.on('connect', () => {
       if (res && res.error) {
         // Room no longer exists or name conflict — clear saved session
         try { localStorage.removeItem('pasture_session'); } catch(e) {}
+        joined = false;
+        myName = '';
+        showScreen('lobby-screen');
+        document.getElementById('join-form').classList.remove('hidden');
+        document.getElementById('waiting-area').classList.add('hidden');
         return;
       }
       if (res && (res.success || res.reconnected)) {
