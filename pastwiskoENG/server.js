@@ -226,16 +226,20 @@ function removeMostExpensiveAnimal(herd) {
 }
 
 // Convert value into animals added to herd (used during famine splitting)
-function addValueAsAnimals(herd, value) {
-  // Greedily convert value into largest animals possible
+// Takes from pool when room is provided; if pool is empty for a type, tries smaller types
+function addValueAsAnimals(herd, value, room) {
+  // Greedily convert value into largest animals possible, respecting pool
   for (let i = ANIMAL_TYPES.length - 1; i >= 0; i--) {
     const type = ANIMAL_TYPES[i];
     const animalValue = ANIMALS[type].value;
     while (value >= animalValue) {
+      if (room && (room.pool[type] || 0) <= 0) break; // pool empty for this type
       herd[type] = (herd[type] || 0) + 1;
+      if (room) room.pool[type]--;
       value -= animalValue;
     }
   }
+  // Any leftover value is lost (no suitable animals in pool) — this is fair
 }
 
 function returnAnimalToPool(room, type) {
@@ -625,10 +629,9 @@ function startPhaseB(room) {
             p.herd[type]--;
             playerLosses[sid][type]++;
             const change = animalValue - remaining;
-            // Add back smaller animals
-            addValueAsAnimals(p.herd, change);
             returnAnimalToPool(room, type);
-            // The smaller animals we added aren't returned to pool — they stay in herd
+            // Add back smaller animals taken from pool
+            addValueAsAnimals(p.herd, change, room);
             remaining = 0;
           }
         }
