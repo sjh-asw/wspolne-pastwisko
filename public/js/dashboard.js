@@ -765,8 +765,26 @@ document.getElementById('ctrl-toggle-anon').addEventListener('click', () => {
 
 document.getElementById('ctrl-new-room').addEventListener('click', () => {
   if (confirm('Czy na pewno chcesz stworzyć nowy pokój? Obecna gra zostanie zakończona, gracze będą musieli dołączyć ponownie.')) {
-    try { localStorage.removeItem('pastwisko_dashboard'); } catch(e) {}
-    location.reload();
+    // Close old room via current socket, then create new one (no reload needed)
+    socket.emit('room:create', (res) => {
+      if (res && res.error) {
+        alert(res.error);
+        return;
+      }
+      roomCode = res.code;
+      dashboardToken = res.token;
+      try { localStorage.setItem('pastwisko_dashboard', JSON.stringify({ code: res.code, token: res.token })); } catch(e) {}
+      document.getElementById('room-code').textContent = res.code;
+      updateLobbyUrl(res.code);
+      // Reset UI to lobby
+      document.getElementById('round-config').style.display = '';
+      document.getElementById('start-game-btn').disabled = true;
+      document.getElementById('lobby-player-list').innerHTML = '';
+      document.getElementById('lobby-player-count').textContent = '0';
+      document.getElementById('dash-top-bar').classList.add('hidden');
+      document.getElementById('controls-panel').classList.remove('visible');
+      showScreen('dash-lobby');
+    });
   }
 });
 
